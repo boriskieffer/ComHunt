@@ -1,0 +1,26 @@
+<!DOCTYPE html> 
+<html>
+    <head>
+        <link rel="stylesheet" href="popup.css">
+    </head>
+    <body>
+        <h1 style="text-align: center">ComHunt v<span id="version"></span></h1>
+        <h2 i18n-key="settings" style="text-align: center;">Settings</h2>
+
+        <div>
+            <input id="enable_highlight" for="enable_caseSensitive" type="checkbox">
+            <label i18n-key="enableHighlight" for="enable_highlight">Enable highlight</label>
+        </div>
+
+        <div>
+            <input id="enable_caseSensitive" type="checkbox">
+            <label i18n-key="caseSensitive" for="enable_caseSensitive">Case sensitive</label>
+        </div>
+
+        <!--<label><input id="enable_badge" type="checkbox"> Enable comment count badge</label>-->
+        <hr>
+        <p>You can request a feature or report an issue (bug or anything else)<br> or become a contributor here : <br><a href="https://github.com/boriskieffer/ComHunt">https://github.com/boriskieffer/ComHunt</a></p>
+        <p>Thank you !</p>
+    </body>
+    <script src="popup.js"></script>
+</html>

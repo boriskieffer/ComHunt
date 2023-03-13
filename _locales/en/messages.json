@@ -1,0 +1,68 @@
+{
+    "COMMENTS": {
+        "message": "Comments"
+    },
+    "TRANSCRIPT": {
+        "message": "Transcription"
+    },
+    "searchBox": {
+        "message": "Search for a comment, reply or author and press Enter"
+    },
+    "SORT_DESCRIPTION": {
+        "message": "--- Sort by ---"
+    },
+    "SORTBY_COMMENT_LENGTH": {
+        "message": "Comment length"
+    },
+    "SORTBY_COMMENT_DATE": {
+        "message": "Publication date"
+    },
+    "SORTBY_LIKE_COUNT": {
+        "message": "By like count"
+    },
+    "SORT_TYPE_DESCRIPTION": {
+        "message": "--- Order --"
+    },
+    "SORT_TYPE_ASC": {
+        "message": "Ascending"
+    },
+    "SORT_TYPE_DESC": {
+        "message": "Descending"
+    },
+    "likeCount": {
+        "message": "$count$ people liked this",
+        "placeholders": {
+            "count" : {
+                "content" : "$1",
+                "example" : 123
+            }
+        }
+    },
+    "heartedByVideoOwner": {
+        "message": "Hearted by video publisher"
+    },
+    "multipleResultMsg": {
+        "message": "$count$ results",
+        "placeholders": {
+            "count" : {
+                "content" : "$1",
+                "example" : 123
+            }
+        }
+    },
+    "singleResultMsg": {
+        "message": "1 result"
+    },
+    "noResult": {
+        "message": "No result"
+    },
+    "settings": {
+        "message": "Settings"
+    },
+    "enableHighlight": {
+        "message": "Enable search highlighting"
+    },
+    "caseSensitive": {
+        "message": "Case sensitive"
+    }
+}

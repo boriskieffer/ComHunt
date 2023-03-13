@@ -1,0 +1,137 @@
+@media (prefers-color-scheme: light) {
+	.comhunt__authorName {
+		color: black;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	.comhunt__authorName {
+		color: white;
+	}
+}
+
+input:focus {
+    outline: 0 none;
+    border: 0 none;
+}
+
+.comhunt__appContainer {
+	padding: 10px;
+	border-radius: 5px;
+	border: 1px solid #eee;
+}
+
+.comhunt__commentParagraph.comhunt__commentEmoji {
+	width: 16px;
+	height: 16px;
+	vertical-align: middle;;
+}
+
+.comhunt__commentTextContainer p {
+	font-size: 13px;
+}
+
+.comhunt__link {
+	text-decoration: none;
+	color: #348dff;
+	cursor: pointer;
+}
+
+.comhunt__resultListContainer {
+	margin-top: 15px;
+}
+
+.comhunt__searchBox {
+	border: none;
+	width: 100%;
+	padding: 5px 0;
+}
+
+.comhunt__searchBox, .comhunt__searchBox:focus {
+	border-bottom: 1px solid #ccc;
+}
+
+.comhunt__resultCount {
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.comhunt__profilePicture {
+	width: 40px;
+	height: 40px;
+	border-radius: 40px;
+	float: left;
+	margin-right: 15px;
+}
+
+.comhunt__authorName {
+	text-decoration: none;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.comhunt__commentDateText {
+	color: #606060;
+	font-size: 11px;
+	text-decoration: none;
+	margin-left: 5px;
+}
+
+.comhunt__repliesContainer {
+	margin-left: 55px;
+}
+
+.comhunt__commentContainer {
+	margin: 15px 0;
+}
+
+.comhunt__activeComment {
+	padding: 3px;
+	border-radius: 3px;
+	transition: background-color 0.5s ease;
+	background: rgba(0,0,0,.06)
+}
+
+.comhunt__feedbackBtn {
+	color: #065fd4;
+	font-weight: 500;
+	font-size: 14px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 8px 16px;
+	border-radius: 100px;
+}
+
+.comhunt__feedbackBtn:hover {
+	background: #def1ff;
+}
+
+.comhunt_icon {
+	display: inline-block;
+	font-size: 20px;
+	background-size: 100% 100%;
+	background-repeat: no-repeat;
+	vertical-align: middle;
+}
+
+.blink {
+	animation: blink 2s infinite both;
+}
+
+@-webkit-keyframes blink {
+	0%, 50%, 100% {
+		opacity: 1;
+	}
+	25%, 75% {
+		opacity: 0;
+	}
+}
+@keyframes blink {
+	0%,	50%, 100% {
+		opacity: 1;
+	}
+	25%, 75% {
+		opacity: 0;
+	}
+}

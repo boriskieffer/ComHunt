@@ -1,0 +1,68 @@
+{
+    "COMMENTS": {
+        "message": "Commentaires"
+    },
+    "TRANSCRIPT": {
+        "message": "Transcription"
+    },
+    "searchBox": {
+        "message": "Recherchez un commentaire, une réponse ou un utilisateur et tapez Entrée"
+    },
+    "SORT_DESCRIPTION": {
+        "message": "--- Classer par ---"
+    },
+    "SORTBY_COMMENT_LENGTH": {
+        "message": "Taille du commentaire"
+    },
+    "SORTBY_COMMENT_DATE": {
+        "message": "Date de publication"
+    },
+    "SORTBY_LIKE_COUNT": {
+        "message": "Nombre de \"J'aime\""
+    },
+    "SORT_TYPE_DESCRIPTION": {
+        "message": "--- Ordre --"
+    },
+    "SORT_TYPE_ASC": {
+        "message": "Croissant"
+    },
+    "SORT_TYPE_DESC": {
+        "message": "Décroissant"
+    },
+    "likeCount": {
+        "message": "$count$ personne(s) ont aimé ça",
+        "placeholders": {
+            "count" : {
+                "content" : "$1",
+                "example" : 123
+            }
+        }
+    },
+    "heartedByVideoOwner": {
+        "message": "L'auteur de la vidéo adore ceci"
+    },
+    "multipleResultMsg": {
+        "message": "$count$ résultats",
+        "placeholders": {
+            "count" : {
+                "content" : "$1",
+                "example" : 123
+            }
+        }
+    },
+    "singleResultMsg": {
+        "message": "1 résultat"
+    },
+    "noResult": {
+        "message": "Aucun résultat"
+    },
+    "settings": {
+        "message": "Paramètres"
+    },
+    "enableHighlight": {
+        "message": "Surligner les résultats"
+    },
+    "caseSensitive": {
+        "message": "Recherche sensible à la casse"
+    }
+}
