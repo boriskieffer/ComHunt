@@ -85,6 +85,12 @@ input:focus {
 	margin: 15px 0;
 }
 
+.comhunt__comment_bottomBar_item {
+	display: inline-block;
+	vertical-align: middle;
+	margin-right: 15px;
+}
+
 .comhunt__activeComment {
 	padding: 3px;
 	border-radius: 3px;
@@ -119,6 +125,18 @@ input:focus {
 	animation: blink 2s infinite both;
 }
 
+.ytb-color {
+	color: #F00;
+}
+
+.is-done-error-color {
+	color: rgb(207, 32, 32);
+}
+
+.is-done-color {
+	color: #1fa31f;
+}
+
 @-webkit-keyframes blink {
 	0%, 50%, 100% {
 		opacity: 1;
@@ -134,4 +152,23 @@ input:focus {
 	25%, 75% {
 		opacity: 0;
 	}
+}
+
+.comment_hearted_author_container {
+	width: 15.6px;
+	position: relative;
+}
+
+.comhunt__hearted_author_img {
+	width: 15.6px;
+	height: 15.6px;
+	border-radius: 15.6px;
+}
+
+.comhunt__hearted_author_icon {
+	color: red;
+	font-size: 13px;
+	position: absolute;
+	top: 8px;
+	left: 8px;
 }

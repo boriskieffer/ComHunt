@@ -246,13 +246,14 @@ function highlight (matches) {
 var CommentSearchBoxDOM = {
     YT_Video_instance: false,
     YT_Post_instance: false,
-
+    loadCounter: 0, // current comment requests count
     instanceInitialToken: null, // used to reset instance and cancel currently loading things
     searchBox: null,
     transcripts: [],
     comments: [],
     resList: null,
     replySetContainer: {},
+    videoAuthorProfilePicture: null, 
 
     createInstance: function (parentContainer, beforeContainer) {
         this.appContainer = document.createElement('div');
@@ -532,13 +533,26 @@ var CommentSearchBoxDOM = {
         likeCountTxt.style.color = '#606060';
         likeCountContainer.append(likeCountTxt);
 
+        likeCountContainer.classList.add('comhunt__comment_bottomBar_item')
         bottomBar.append(likeCountContainer)
 
         if (commentData.isHearted) {
-            let heartedByAuthor = document.createElement('p')
-            heartedByAuthor.innerText = '❤️';
-            heartedByAuthor.title = browser.i18n.getMessage('heartedByVideoOwner');
-            bottomBar.append(heartedByAuthor);
+            let heartedByAuthorContainer = document.createElement('div');
+            heartedByAuthorContainer.classList.add('comment_hearted_author_container');
+            heartedByAuthorContainer.title = browser.i18n.getMessage('heartedByVideoOwner');
+
+            let heartedByAuthorImg = document.createElement('img');
+            heartedByAuthorImg.src = this.videoAuthorProfilePicture;
+            heartedByAuthorImg.classList.add('comhunt__hearted_author_img')
+
+            let heartedByAuthorIcon = document.createElement('i');
+            heartedByAuthorIcon.classList.add('ri-heart-fill');
+            heartedByAuthorIcon.classList.add('comhunt__hearted_author_icon');
+
+            heartedByAuthorContainer.append(heartedByAuthorImg, heartedByAuthorIcon);
+            heartedByAuthorContainer.classList.add('comhunt__comment_bottomBar_item')
+
+            bottomBar.append(heartedByAuthorContainer);
         }
 
         commentDetailsContainer.append(bottomBar);
@@ -659,12 +673,26 @@ var CommentSearchBoxDOM = {
             this.replySetContainer[commentId].parentNode.removeChild(this.replySetContainer[commentId]);
         }
     },
-    setLoadingComplete: function (loadingComplete = true) {
+    setLoadingComplete: function (iconContainer, loadingComplete = true, error = false) {
+        console.log(iconContainer,'=>',iconContainer.classList);
+
         if (loadingComplete) {
-            this.loadingTable__commentsRow__icon.classList.add('comhunt_icon');
-            this.loadingTable__commentsRow__icon.classList = ['ri-chat-check-fill'];
-        } else {
+            iconContainer.classList.remove('ri-chat-download-fill')
+            iconContainer.classList.remove('blink')
         }
+
+        if(!error){
+            if (loadingComplete) {
+                iconContainer.classList.add('ri-chat-check-fill');
+                iconContainer.classList.add('is-done-color');
+            } else {
+                // remove loading complete
+            }
+        } else {
+            iconContainer.classList.add('ri-chat-off-line');
+            iconContainer.classList.add('is-done-error-color');
+        }
+
     },
     renderTranscriptSet: function (transcriptSet) {
         console.log('[.renderTranscriptSet] on ', transcriptSet)
@@ -726,29 +754,32 @@ var CommentSearchBoxDOM = {
             "method": "POST"
         }).then(response => {
             response.json().then(json => {
-                console.log(json.captions.playerCaptionsTracklistRenderer.captionTracks[0].name.simpleText)
-                let captionUrl = json.captions.playerCaptionsTracklistRenderer.captionTracks[0].baseUrl;
-                captionUrl += '&fmt=json3';
-
-                fetch(captionUrl).then(response => {
-                    response.json().then(jsonTranscript => {
-                        jsonTranscript.events.forEach(transcriptData => {
-                            if (transcriptData.segs && transcriptData.segs.length>1) {  
-                                let transcriptText = '';
-                                transcriptData.segs.forEach(segment => {
-                                    transcriptText += segment.utf8;
-                                });
-        
-                                this.transcripts.push({
-                                    transcriptText,
-                                    start: (transcriptData.tStartMs / 1000)
-                                })
-                            }
+                if (json.captions) {
+                    let captionUrl = json.captions.playerCaptionsTracklistRenderer.captionTracks[0].baseUrl;
+                    captionUrl += '&fmt=json3';
+    
+                    fetch(captionUrl).then(response => {
+                        response.json().then(jsonTranscript => {
+                            jsonTranscript.events.forEach(transcriptData => {
+                                if (transcriptData.segs && transcriptData.segs.length>1) {  
+                                    let transcriptText = '';
+                                    transcriptData.segs.forEach(segment => {
+                                        transcriptText += segment.utf8;
+                                    });
+            
+                                    this.transcripts.push({
+                                        transcriptText,
+                                        start: (transcriptData.tStartMs / 1000)
+                                    })
+                                }
+                            })
+                            this.setLoadingComplete(this.loadingTable__transcriptionRow__icon, true);
+                            this.loadingTable__transcriptionRow__data.innerText = this.transcripts.length + ' (' + json.captions.playerCaptionsTracklistRenderer.captionTracks[0].name.simpleText + ')';
                         })
-                        this.loadingTable__transcriptionRow__data.innerText = this.transcripts.length + ' (' + json.captions.playerCaptionsTracklistRenderer.captionTracks[0].name.simpleText + ')';
-                    })
-                });
-
+                    });
+                } else {
+                    CommentSearchBoxDOM.setLoadingComplete(CommentSearchBoxDOM.loadingTable__transcriptionRow__icon, true, true)
+                }
             })
         });
         
@@ -806,7 +837,6 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                 
                 if (json.onResponseReceivedEndpoints == null) {
                     this.refreshCommentCount();
-                    CommentSearchBoxDOM.setLoadingComplete(true);
                     return;
                 }
 
@@ -818,12 +848,6 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                 }
 
                 if (continuationItems != null) {
-
-                    // checks if the last element of continuationItems is a commentThreadRenderer.. if so, then it means that all parent comments finished loaded since it has no token for last element
-                    if (continuationItems[continuationItems.length-1].commentThreadRenderer != null) {
-                        CommentSearchBoxDOM.setLoadingComplete(true)
-                    }
-
                     continuationItems.forEach(continuationItem => {
                         let comment = null;
 
@@ -834,6 +858,7 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                             // load replies using token if got any replies
                             if (continuationItem.commentThreadRenderer.replies != null) {
                                 load(initialContinuationToken, continuationItem.commentThreadRenderer.replies.commentRepliesRenderer.contents[0].continuationItemRenderer.continuationEndpoint.continuationCommand.token, CLIENT_APIKEY, true, comment.commentId)
+                                CommentSearchBoxDOM.loadCounter++;
                             }
                         }
                         // otherwise it's probably a reply
@@ -855,6 +880,13 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                             let isPinned = comment.pinnedCommentBadge != null;
                             let authorThumbnail = comment.authorThumbnail.thumbnails[0].url; // 48x48 profile picture
 
+                            if (isHearted) {
+                                let videoOwnerThumbnail = comment.actionButtons.commentActionButtonsRenderer.creatorHeart.creatorHeartRenderer.creatorThumbnail.thumbnails[0].url;
+                                if (CommentSearchBoxDOM.videoAuthorProfilePicture == null || CommentSearchBoxDOM.videoAuthorProfilePicture != videoOwnerThumbnail) {
+                                    CommentSearchBoxDOM.videoAuthorProfilePicture = videoOwnerThumbnail;
+                                }
+                            }
+
                             CommentSearchBoxDOM.pushComment(
                                 commentId,
                                 isChannelOwner,
@@ -875,14 +907,22 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                             if (continuationItem.continuationItemRenderer.trigger == 'CONTINUATION_TRIGGER_ON_ITEM_SHOWN') {
                                 let nextContinuationToken = continuationItem.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
                                 load(initialContinuationToken, nextContinuationToken, CLIENT_APIKEY, false, null);
+                                CommentSearchBoxDOM.loadCounter++;
                             }
 
                             // probably "show more" button
                             else if (continuationItem.continuationItemRenderer.button != null) {
                                 load(initialContinuationToken, continuationItem.continuationItemRenderer.button.buttonRenderer.command.continuationCommand.token, CLIENT_APIKEY, true, parentId);
+                                CommentSearchBoxDOM.loadCounter++;
                             }
                         }
                     });
+
+                    // checks if the last element of continuationItems is a commentThreadRenderer.. if so, then it means that all parent comments finished loaded since it has no token for last element
+                    if (CommentSearchBoxDOM.loadCounter <= 0) {
+                        CommentSearchBoxDOM.setLoadingComplete(CommentSearchBoxDOM.loadingTable__commentsRow__icon,true);
+                    } 
+                    CommentSearchBoxDOM.loadCounter--;
                 }
             });
         });

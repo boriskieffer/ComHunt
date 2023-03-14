@@ -38,8 +38,11 @@
 .ri-10x { font-size: 10em; }
 .ri-fw { text-align: center; width: 1.25em; }
 
+.ri-thumb-up-fill:before { content: "\f206"; }
 .ri-thumb-up-line:before { content: "\f207"; }
 .ri-arrow-down-s-fill:before { content: "\ea4d"; }
 .ri-check-line:before { content: "\eb7b"; }
 .ri-chat-check-fill:before { content: "\eb54"; }
 .ri-chat-download-fill:before { content: "\eb58"; }
+.ri-chat-off-line:before { content: "\eb65"; }
+.ri-heart-fill:before { content: "\ee0e"; }
