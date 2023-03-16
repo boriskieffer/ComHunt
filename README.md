@@ -14,15 +14,16 @@ https://github.com/boriskieffer/ComHunt/tree/dev
 ## Features
 - Deploy comment replies from a parent comment
 - Deploy comment thread from a reply
-- YouTube Posts support --> lot of remaining bugs due to Single Page App limitation
+- Like a comment (if logged)
 - Highlight results
 - Transcript support
 - Emoji support
 - Markdown support
 - Sort by comment length, like count or publication date
+- Dark mode support
 
 ## TODO
 - Bug fixes for YT Posts
 - More CPU-efficient highlighting implementation
-- Dark mode support
+- YouTube Posts support
 - Support for Youtube Shorts (0%)

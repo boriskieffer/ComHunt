@@ -64,5 +64,28 @@
     },
     "caseSensitive": {
         "message": "Case sensitive"
+    },
+    "SHOW_ONE_REPLY_BTN": {
+        "message": "↳ Show the reply"
+    },
+    "HIDE_ONE_REPLY_BTN": {
+        "message": "Hide the reply"
+    },
+    "SHOW_ENTIRE_THREAD_BTN": {
+        "message": "Show entire thread"
+    },
+    "HIDE_THREAD_BTN": {
+        "message": "Hide thread"
+    },
+    "SHOW_MULTIPLE_REPLIES_BTN": {
+        "message": "↳ Show all $count$ replies",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "HIDE_MULTIPLE_REPLIES_BTN": {
+        "message": "Hide all replies"
     }
 }

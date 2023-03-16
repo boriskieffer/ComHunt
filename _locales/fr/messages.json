@@ -64,5 +64,28 @@
     },
     "caseSensitive": {
         "message": "Recherche sensible à la casse"
+    },
+    "SHOW_ONE_REPLY_BTN": {
+        "message": "↳ Afficher la réponse"
+    },
+    "HIDE_ONE_REPLY_BTN": {
+        "message": "Cacher la réponse"
+    },
+    "SHOW_ENTIRE_THREAD_BTN": {
+        "message": "Afficher le fil en entier"
+    },
+    "HIDE_THREAD_BTN": {
+        "message": "Cacher le fil"
+    },
+    "SHOW_MULTIPLE_REPLIES_BTN": {
+        "message": "↳ Afficher les $count$ réponses",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "HIDE_MULTIPLE_REPLIES_BTN": {
+        "message": "Cacher les réponses"
     }
 }
