@@ -10,6 +10,13 @@
 	}
 }
 
+.comhunt__authorName.is_channel_author {
+	background: #888888;
+	color: white;
+	border-radius: 20px;
+	padding: 0 6px;
+}
+
 input:focus {
     outline: 0 none;
     border: 0 none;

@@ -1,12 +1,116 @@
+console.log('Injected youtube_window.js')
 const tabId = parseInt(document.querySelector("[data-tabid]").getAttribute("data-tabid"));
 const CLIENT_APIKEY = window.ytcfg.get('INNERTUBE_API_KEY');
 let SAPISIDHASH = null;
 let loadCounter = 0; // current comment requests count
-let currentInstanceType = 'YT_VIDEO';
+let currentInstanceType = null;
+
+let videoId = new URLSearchParams(this.window.location.search).get('v');
+
 let instanceInitialToken = null;
 
 String.prototype.replaceAt = function(index, replacement) {
     return this.substring(0, index) + replacement + this.substring(index + replacement.length);
+}
+
+function isYouTubeVideo () {
+    return window.location.href.startsWith('https://www.youtube.com/watch?v=')
+}
+
+function isYouTubePost() {
+    return window.location.href.startsWith('https://www.youtube.com/post/') || window.location.href.includes('community?lb=')
+}
+
+function isYouTubeShort() {
+    return window.location.href.startsWith('https://www.youtube.com/shorts/');
+}
+
+const getInitialTokenFromReel = (reelId) => new Promise((resolve) => {
+    fetch("https://www.youtube.com/youtubei/v1/reel/reel_item_watch?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
+        "body": "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20230317.00.00\",\"mainAppWebInfo\":{}},\"user\":{\"lockedSafetyMode\":false},\"request\":{\"useSsl\":true,\"internalExperimentFlags\":[],\"consistencyTokenJars\":[]},\"clickTracking\":{\"clickTrackingParams\":\"\"},\"adSignalsInfo\":{}},\"playerRequest\":{\"videoId\":\"" + reelId +"\"}}",
+        "method": "POST",
+    }).then(response => {
+        response.json().then(json => {
+            let token = json.engagementPanels[0].engagementPanelSectionListRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer.contents[0].continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+            resolve(token);
+        });
+    })
+});
+
+const getInitialTokenFromVideoId = (videoId) => new Promise((resolve) => {
+    fetch("https://www.youtube.com/youtubei/v1/next?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
+        "body": "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20230301.09.00\"}},\"videoId\":\"" + videoId + "\"}",
+        "method": "POST",
+        "mode": "cors"
+    }).then(response => {
+        try {
+            response.json().then(json => {
+                continuationToken = json.contents.twoColumnWatchNextResults.results.results.contents.filter(
+                    renderer => renderer.itemSectionRenderer != null && renderer.itemSectionRenderer.sectionIdentifier == 'comment-item-section'
+                );
+                continuationToken = continuationToken[continuationToken.length-1].itemSectionRenderer.contents;
+                continuationToken = continuationToken[continuationToken.length-1].continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+
+                // when sorting from newest to older instead of top comments, all comments display correctly... ??
+                continuationToken = continuationToken.replaceAt(47, 'B')
+
+                resolve(continuationToken)
+            })
+        } catch {
+            alert('ComHunt -- Error when getting initial token')
+        }
+    });
+});
+
+function refreshInstance (params) {
+    if (!SAPISIDHASH) {
+        let SAPISID = getCookie("SAPISID")
+        getSApiSidHash(SAPISID, "https://www.youtube.com").then(_SAPISIDHASH => {
+            SAPISIDHASH = _SAPISIDHASH
+        })
+    }
+    if (isYouTubeVideo()) {
+        currentInstanceType = 'video';
+        if (params.transcript) {
+            loadVideoTranscript(videoId);
+        }
+
+        if (params.comments) {
+            getInitialTokenFromVideoId(videoId).then(token => {
+                sendCommandToCS('SET_LOADING_STATUS', {
+                    loading_type: 'video',
+                    loading: true
+                })
+                initialTokenLoad(token);
+            });
+        }
+    } else if (isYouTubePost()) {
+        currentInstanceType = 'post';
+        this.fetch(this.window.location.href).then(response => {
+            response.text().then(html => {
+                const regex = /"continuationCommand":{"token":"(.+?)"/;
+                let continuationToken = html.match(regex)[1];
+                console.log('loading status to cs');
+
+                sendCommandToCS('SET_LOADING_STATUS', {
+                    loading_type: 'video',
+                    loading: true
+                })
+                console.log('end loading status to cs');
+
+
+                initialTokenLoad(continuationToken);
+                
+
+            })
+        })
+    } else if (isYouTubeShort()) {
+        currentInstanceType = 'shorts'
+        let reelId = window.location.pathname.split('/')[2];
+        getInitialTokenFromReel(reelId).then(continuationToken => {
+            initialTokenLoad(continuationToken);
+        })
+    }
 }
 
 // sends message to content script
@@ -35,32 +139,16 @@ function getCookie(cname) {
     return "";
   }
 
-window.addEventListener('message', function (message) {
+window.addEventListener('message', function (message) {
     let messageData = message.data;
     if (!messageData.comhunt_command) return;
     if (!messageData.comhunt_target || messageData.comhunt_target != 'window') return;
     if (!messageData.target_tabId || messageData.target_tabId != tabId) return;
-    if (messageData.comhunt_data && messageData.comhunt_data.target_tabId && messageData.comhunt_data.target_tabId != tabId) return;
 
-    let videoId = new URLSearchParams(window.location.search).get('v');
     switch (messageData.comhunt_command) {
-        case 'LOAD_COMMENTS':
-            if (!SAPISIDHASH) {
-                let SAPISID = getCookie("SAPISID")
-                getSApiSidHash(SAPISID, "https://www.youtube.com").then(_SAPISIDHASH => {
-                    SAPISIDHASH = _SAPISIDHASH
-                })
-            }
-            getInitialTokenFromVideoId(videoId).then(token => {
-                sendCommandToCS('SET_LOADING_STATUS', {
-                    loading_type: 'video',
-                    loading: true
-                })
-                initialTokenLoad(token);
-            });
-            break;
-        case 'LOAD_TRANSCRIPT':
-            loadVideoTranscript(videoId);
+        case 'REFRESH_INSTANCE':
+            let params = messageData.comhunt_data || null;
+            refreshInstance(params);
             break;
         case 'likeComment':
             fetch("https://www.youtube.com/youtubei/v1/comment/perform_comment_action?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
@@ -80,8 +168,7 @@ window.addEventListener('message', function (message) {
                     likeActionEndpoint,
                     feedback,
                     error
-                })
-
+                });
             }));
             break;
         case 'stopLoadingComments':
@@ -110,18 +197,10 @@ const getSApiSidHash = async function(SAPISID, origin) {
 
 function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isReplySet = false, parentId = null) {
     let apiEndpoint = null;
-    switch (currentInstanceType) {
-        case 'YT_VIDEO':
-            apiEndpoint = 'https://www.youtube.com/youtubei/v1/next?key=';
-            break;
-        case 'YT_POST':
-            apiEndpoint = 'https://www.youtube.com/youtubei/v1/browse?key=';
-            break;
-        case 'YT_SHORTS':
-            break;
-        default:
-            console.log('Unknown instance type!');
-            break;
+    if (window.location.href.startsWith('https://www.youtube.com/watch?v=')) {
+        apiEndpoint = 'https://www.youtube.com/youtubei/v1/next?key=';
+    } else if (isYouTubePost() || isYouTubeShort()) {
+        apiEndpoint = 'https://www.youtube.com/youtubei/v1/browse?key=';
     }
    
     if (initialContinuationToken == instanceInitialToken) {
@@ -134,7 +213,6 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
         }).then(response => {
             response.json().then(json => {
                 let continuationItems = null;
-
                 if (json.onResponseReceivedEndpoints[1] != null) {
                     continuationItems = json.onResponseReceivedEndpoints[1].reloadContinuationItemsCommand.continuationItems;
                 } else {
@@ -175,8 +253,13 @@ function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isRep
                             let authorThumbnail = comment.authorThumbnail.thumbnails[0].url; // 48x48 profile picture
                             let isLiked = comment.isLiked;
 
-                            let likeActionEndpoint = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint.performCommentActionEndpoint.action;
-                            let toggleActionButton = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.toggledServiceEndpoint.performCommentActionEndpoint.action;
+                            let likeActionEndpoint;
+                            let toggleActionButton;
+                            // only if user is logged
+                            if (comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint) {
+                                likeActionEndpoint = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint.performCommentActionEndpoint.action;
+                                toggleActionButton = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.toggledServiceEndpoint.performCommentActionEndpoint.action;
+                            }
 
                             if (isHearted) {
                                 let videoOwnerThumbnail = comment.actionButtons.commentActionButtonsRenderer.creatorHeart.creatorHeartRenderer.creatorThumbnail.thumbnails[0].url;
@@ -276,30 +359,7 @@ function loadVideoTranscript(videoId) {
 
 function initialTokenLoad (continuationToken = null) {
     instanceInitialToken = continuationToken;
-    console.log('[.initialLoad] Loading with token', instanceInitialToken)
+    console.log('[.initialTokenLoad] Loading with token', instanceInitialToken)
 
-    // when sorting from newest to older instead of top comments, all comments display correctly... ??
-    instanceInitialToken = instanceInitialToken.replaceAt(47, 'B')
     load(instanceInitialToken, instanceInitialToken, CLIENT_APIKEY, false, null)
 }
-
-const getInitialTokenFromVideoId = (videoId) => new Promise((resolve) => {
-    fetch("https://www.youtube.com/youtubei/v1/next?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
-        "body": "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20230301.09.00\"}},\"videoId\":\"" + videoId + "\"}",
-        "method": "POST",
-        "mode": "cors"
-    }).then(response => {
-        try {
-            response.json().then(json => {
-                continuationToken = json.contents.twoColumnWatchNextResults.results.results.contents.filter(
-                    renderer => renderer.itemSectionRenderer != null && renderer.itemSectionRenderer.sectionIdentifier == 'comment-item-section'
-                );
-                continuationToken = continuationToken[continuationToken.length-1].itemSectionRenderer.contents;
-                continuationToken = continuationToken[continuationToken.length-1].continuationItemRenderer.continuationEndpoint.continuationCommand.token;    
-                resolve(continuationToken)
-            })
-        } catch {
-            alert('ComHunt -- Error when getting initial token')
-        }
-    });
-});
