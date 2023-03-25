@@ -1,11 +1,11 @@
 @media (prefers-color-scheme: light) {
-	.comhunt__authorName {
+	.t-color-inverse {
 		color: black;
 	}
 }
 
 @media (prefers-color-scheme: dark) {
-	.comhunt__authorName {
+	.t-color-inverse {
 		color: white;
 	}
 }

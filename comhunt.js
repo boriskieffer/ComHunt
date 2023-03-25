@@ -192,7 +192,7 @@ function getCommentTextFromRuns(runs) {
 function renderCommentFromRuns(runs, container) {
     let currentParagraphContainer = document.createElement('p');
     currentParagraphContainer.classList.add('comhunt__commentParagraph');
-
+    currentParagraphContainer.classList.add('t-color-inverse')
 
     let matches = [];
     let search = CommentSearchBoxDOM.searchBox.value;
@@ -356,9 +356,11 @@ var CommentSearchBoxDOM = {
         // <table><tr><td>
         let loadingTable__commentsRow__title = document.createElement('td');
         loadingTable__commentsRow__title.innerText = browser.i18n.getMessage('COMMENTS');
+        loadingTable__commentsRow__title.classList.add('t-color-inverse');
         // <table><tr><td>
         this.loadingTable__commentsRow__data = document.createElement('td');
         this.loadingTable__commentsRow__data.innerText = '0'
+        this.loadingTable__commentsRow__data.classList.add('t-color-inverse');
         // <table><tr><td>
         let loadingTable__commentsRow__action = document.createElement('td');
         loadingTable__commentsRow__action.innerText = '(stop)'
@@ -393,9 +395,11 @@ var CommentSearchBoxDOM = {
         // <table><tr><td>
         let loadingTable__transcriptionRow__title = document.createElement('td');
         loadingTable__transcriptionRow__title.innerText = browser.i18n.getMessage('TRANSCRIPT');
+        loadingTable__transcriptionRow__title.classList.add('t-color-inverse')
         // <table><tr><td>
         this.loadingTable__transcriptionRow__data = document.createElement('td');
         this.loadingTable__transcriptionRow__data.innerText = '0'
+        this.loadingTable__transcriptionRow__data.classList.add('t-color-inverse');
         // <table><tr><td>
         this.loadingTable__transcriptRow__action = document.createElement('td');
         this.loadingTable__transcriptRow__action.innerText = '(stop)'
@@ -617,6 +621,7 @@ var CommentSearchBoxDOM = {
 
         let authorName = document.createElement('a');
         authorName.classList.add('comhunt__authorName');
+        authorName.classList.add('t-color-inverse');
         authorName.href = commentData.authorChannel;
         authorName.innerText = commentData.authorName;
         if (commentData.isChannelOwner) {
