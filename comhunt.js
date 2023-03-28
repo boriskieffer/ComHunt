@@ -129,8 +129,6 @@ window.addEventListener('message', function (event) {
                 
                 let commentData = CommentSearchBoxDOM.comments.filter(comment => comment.commentId == message.comhunt_data.commentId)[0];
 
-                console.log(commentData);
-                
                 if (message.comhunt_data.feedback == 'FEEDBACK_LIKE' && !commentData.isLiked) {
                     commentData.voteCount++;
                     commentData.isLiked = true;
