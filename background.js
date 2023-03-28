@@ -27,5 +27,5 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
-    tabInstances.pop(tabId);
+    delete tabInstances[tabId];
 })

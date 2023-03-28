@@ -11,6 +11,8 @@ String.prototype.replaceAt = function(index, replacement) {
     return this.substring(0, index) + replacement + this.substring(index + replacement.length);
 }
 
+sendCommandToCS('SET_UI_THEME', ytcfg.get('INNERTUBE_CONTEXT').client.userInterfaceTheme);
+
 function log (data) {
     console.log('%cComHunt%cyoutube_window.js : \n' + data, 'background: red; color: white');
 }

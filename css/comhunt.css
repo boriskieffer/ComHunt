@@ -1,17 +1,21 @@
-@media (prefers-color-scheme: light) {
-	.t-color-inverse {
-		color: black;
-	}
+/* Light theme specific */
+.comhunt__appContainer.light-theme .t-color-inverse {
+	color: black;
 }
 
-@media (prefers-color-scheme: dark) {
-	.t-color-inverse {
-		color: white;
-	}
+.comhunt__appContainer.light-theme .comhunt__searchBox {
+	color: black;
+	background: rgba(0, 0, 0, 0.1);
+}
 
-	.comhunt__searchBox {
-		color: white;
-	}
+/* Dark theme specific */
+.comhunt__appContainer.dark-theme .t-color-inverse {
+	color: white;
+}
+
+.comhunt__appContainer.dark-theme .comhunt__searchBox {
+	color: white;
+	background: #2d2d2d;
 }
 
 .comhunt__authorName.is_channel_author {
@@ -59,7 +63,6 @@ input:focus {
 	height: 35px;
 	border-radius: 35px;
 	box-sizing: border-box;
-	background: rgba(0, 0, 0, 0.1);
 	font-family: 'Roboto', sans-serif;
 	margin-top: 15px;
 }

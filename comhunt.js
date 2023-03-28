@@ -5,6 +5,7 @@ browser.storage.local.get().then(_settings => settings = _settings);
 let tabId = null;
 let ytWindowScriptIsLoaded = false;
 let instanceUrl = null;
+let userTheme = null;
 
 function isYouTubeVideo () {
     return window.location.href.startsWith('https://www.youtube.com/watch?v=')
@@ -96,6 +97,13 @@ window.addEventListener('message', function (event) {
     if (!message.comhunt_command) return;
     if (!message.comhunt_target || message.comhunt_target != 'cs') return;
     switch (message.comhunt_command) {
+        case 'SET_UI_THEME':
+            if (message.comhunt_data == 'USER_INTERFACE_THEME_DARK') {
+                userTheme = 'dark-theme';
+            } else {
+                userTheme = 'light-theme';
+            }
+            break;
         case 'append_comment':
             if (!CommentSearchBoxDOM.comments.filter(comment => comment.commentId == message.comhunt_data.commentId).length) {
                 CommentSearchBoxDOM.comments.push(message.comhunt_data);
@@ -344,6 +352,7 @@ var CommentSearchBoxDOM = {
 
         this.appContainer = document.createElement('div');
         this.appContainer.classList.add('comhunt__appContainer');
+        this.appContainer.classList.add(userTheme);
 
         // <table>
         let loadingTable = document.createElement('table');
@@ -951,7 +960,6 @@ function doneIfReady () {
                     doneIfReady();
                 } else {
                     if (!CommentSearchBoxDOM.initialized) CommentSearchBoxDOM.createInstance(document.querySelector("#below"), document.querySelector('#below #comments'));
-                        
                     sendCommandToWindow('REFRESH_INSTANCE', {
                         transcript: true,
                         comments: true
