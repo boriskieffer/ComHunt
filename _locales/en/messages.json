@@ -34,7 +34,7 @@
         "placeholders": {
             "count" : {
                 "content" : "$1",
-                "example" : 123
+                "example" : "123"
             }
         }
     },
@@ -52,7 +52,7 @@
         "placeholders": {
             "count" : {
                 "content" : "$1",
-                "example" : 123
+                "example" : "123"
             }
         }
     },
