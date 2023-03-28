@@ -4,6 +4,7 @@ let settings = {};
 browser.storage.local.get().then(_settings => settings = _settings);
 let tabId = null;
 let ytWindowScriptIsLoaded = false;
+let instanceUrl = null;
 
 function isYouTubeVideo () {
     return window.location.href.startsWith('https://www.youtube.com/watch?v=')
@@ -18,7 +19,7 @@ function isYouTubeShort() {
 }
 
 // sends message to window
-function sendCommandToWindow (comhunt_command, comhunt_data) {
+function sendCommandToWindow (comhunt_command, comhunt_data = null) {
     window.postMessage({
         comhunt_command,
         comhunt_data,
@@ -90,7 +91,7 @@ remixIcon.href = browser.runtime.getURL('css/remixicon.css');
 document.body.append(remixIcon);
 
 // messages sent from window instance
-window.addEventListener('message', function (event) {
+window.addEventListener('message', function (event) {
     let message = event.data;
     if (!message.comhunt_command) return;
     if (!message.comhunt_target || message.comhunt_target != 'cs') return;
@@ -98,11 +99,16 @@ window.addEventListener('message', function (event) {
         case 'append_comment':
             if (!CommentSearchBoxDOM.comments.filter(comment => comment.commentId == message.comhunt_data.commentId).length) {
                 CommentSearchBoxDOM.comments.push(message.comhunt_data);
-                CommentSearchBoxDOM.updateCountUI('video');
+                CommentSearchBoxDOM.updateCountUI('comments');
             }
             break;
+        case 'ACK_VIDEO_CHANGE':
+            instanceUrl = window.location.href;
+            CommentSearchBoxDOM.resetInstance();
+            doneIfReady();
         case 'APPEND_TRANSCRIPT':
             CommentSearchBoxDOM.transcripts.push(message.comhunt_data);
+            CommentSearchBoxDOM.updateCountUI('transcript');
             break;
         case 'reset_instance':
             break;
@@ -110,15 +116,7 @@ window.addEventListener('message', function (event) {
             settings = message.comhunt_data;
             break;
         case 'SET_LOADING_STATUS':
-            if (message.comhunt_data.loading_type == 'video') {
-                CommentSearchBoxDOM.loadingStatus.video.loading = message.comhunt_data.loading;
-                CommentSearchBoxDOM.loadingStatus.video.error = CommentSearchBoxDOM.loadingStatus.video.error || false;
-                CommentSearchBoxDOM.updateLoadingUI('video')
-            } else if (message.comhunt_data.loading_type == 'transcript') {
-                CommentSearchBoxDOM.loadingStatus.transcript.loading = message.comhunt_data.loading;
-                CommentSearchBoxDOM.loadingStatus.transcript.error = CommentSearchBoxDOM.loadingStatus.video.error || false;
-                CommentSearchBoxDOM.updateLoadingUI('transcript')
-            }
+            CommentSearchBoxDOM.setLoadingStatus(message.comhunt_data.loading_type, message.comhunt_data.loading, message.comhunt_data.error || false)
             break;
         case 'SET_AUTHOR_THUMBNAIL':
             CommentSearchBoxDOM.videoAuthorProfilePicture = message.comhunt_data.videoAuthorProfilePicture;
@@ -169,9 +167,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
         case 'REFRESH_INSTANCE':
             // pass the message to "window" script
-            CommentSearchBoxDOM.resetInstance();
-            sendCommandToWindow('REFRESH_INSTANCE')
-            doneIfReady();
+            if (instanceUrl == null) {
+                CommentSearchBoxDOM.resetInstance();
+                doneIfReady();
+            } else if (isYouTubeVideo() && CommentSearchBoxDOM.loadingStatus.video.loading == false) {
+                CommentSearchBoxDOM.resetInstance();
+                doneIfReady();
+            }
+            // otherwise, we wait for "ACK_VIDEO_CHANGE" because a set of comment is actually loading
             break;
         case 'update_settings':
             browser.storage.local.get().then(_settings => settings = _settings);
@@ -252,6 +255,7 @@ function renderCommentFromRuns(runs, container) {
                 container.append(currentParagraphContainer);
                 currentParagraphContainer = document.createElement('p');
                 currentParagraphContainer.classList.add('comhunt__commentParagraph');
+                currentParagraphContainer.classList.add('t-color-inverse');
             }
         }
 
@@ -362,18 +366,16 @@ var CommentSearchBoxDOM = {
         this.loadingTable__commentsRow__data.innerText = '0'
         this.loadingTable__commentsRow__data.classList.add('t-color-inverse');
         // <table><tr><td>
-        let loadingTable__commentsRow__action = document.createElement('td');
-        loadingTable__commentsRow__action.innerText = '(stop)'
-        loadingTable__commentsRow__action.style.fontSize = '9px';
-        loadingTable__commentsRow__action.addEventListener('click', () => {
+        this.loadingTable__commentsRow__action = document.createElement('td');
+        this.loadingTable__commentsRow__action.innerText = browser.i18n.getMessage('TEXT_LOAD_STOP');
+        this.loadingTable__commentsRow__action.style.fontSize = '9px';
+        this.loadingTable__commentsRow__action.addEventListener('click', () => {
             if (this.loadingStatus.video.loading) {
                 // currently loading so stop the load
-                loadingTable__commentsRow__action.innerText = '(reload)';
-                sendCommandToWindow('stopLoadingComments', null)
+                sendCommandToWindow('LOAD_STOP', 'comments')
             } else {
-                loadingTable__commentsRow__action.innerText = '(stop)';
                 this.comments = [];
-                this.updateCountUI('video');
+                this.updateCountUI('comments');
                 this.loadingTable__commentsRow__icon.classList.add('ri-chat-download-fill');
                 this.loadingTable__commentsRow__icon.classList.add('blink');
                 this.loadingTable__commentsRow__icon.classList.remove('is-done-color')
@@ -383,7 +385,7 @@ var CommentSearchBoxDOM = {
             }
         })
         // inserts x4 <table><tr><td> 
-        loadingTable__commentsRow.append(this.loadingTable__commentsRow__icon, loadingTable__commentsRow__title, this.loadingTable__commentsRow__data, loadingTable__commentsRow__action)
+        loadingTable__commentsRow.append(this.loadingTable__commentsRow__icon, loadingTable__commentsRow__title, this.loadingTable__commentsRow__data, this.loadingTable__commentsRow__action)
 
         // <table><tr>
         let loadingTable__transcriptionRow = document.createElement('tr');
@@ -402,11 +404,10 @@ var CommentSearchBoxDOM = {
         this.loadingTable__transcriptionRow__data.classList.add('t-color-inverse');
         // <table><tr><td>
         this.loadingTable__transcriptRow__action = document.createElement('td');
-        this.loadingTable__transcriptRow__action.innerText = '(stop)'
+        this.loadingTable__transcriptRow__action.innerText = browser.i18n.getMessage('TEXT_LOAD_STOP');
         this.loadingTable__transcriptRow__action.style.fontSize = '9px';
         this.loadingTable__transcriptRow__action.addEventListener('click', () => {
-
-            this.loadingTable__transcriptRow__action.innerText = '(stop)';
+            this.loadingTable__transcriptRow__action.innerText = browser.i18n.getMessage('TEXT_LOAD_STOP');;
             this.transcripts = [];
             this.updateCountUI('transcript');
             //this.loadingTable__transcript__icon.classList.add('ri-chat-download-fill');
@@ -419,8 +420,11 @@ var CommentSearchBoxDOM = {
         // inserts x4 <table><tr><td> 
         loadingTable__transcriptionRow.append(this.loadingTable__transcriptionRow__icon, loadingTable__transcriptionRow__title, this.loadingTable__transcriptionRow__data, this.loadingTable__transcriptRow__action)
         
-        // inserts x2 <table><tr>
-        loadingTable.append(loadingTable__commentsRow, loadingTable__transcriptionRow);
+        // inserts <table><tr>
+        loadingTable.append(loadingTable__commentsRow);
+        if (isYouTubeVideo()) {
+            loadingTable.append(loadingTable__transcriptionRow)
+        }
 
         // inserts <table>
         this.appContainer.append(loadingTable);
@@ -504,8 +508,8 @@ var CommentSearchBoxDOM = {
                     }
                 );
 
-                this.renderCommentSet(results, this.searchBox.value);                
-                this.renderTranscriptSet(transcriptResults);
+                if (results) this.renderCommentSet(results, this.searchBox.value);
+                if (transcriptResults) this.renderTranscriptSet(transcriptResults);
             }
         });
 
@@ -566,13 +570,11 @@ var CommentSearchBoxDOM = {
             this.resList = _resList;
         }
 
-        CommentSearchBoxDOM.loadingStatus.video.error = false;
-        CommentSearchBoxDOM.loadingStatus.video.loading = false;
-        this.updateLoadingUI('video');
+        this.updateCountUI('transcript');
+        this.updateCountUI('comments');
+        this.setLoadingStatus('comments', false);
+        this.setLoadingStatus('transcript', false);
 
-        CommentSearchBoxDOM.loadingStatus.transcript.loading = false;
-        CommentSearchBoxDOM.loadingStatus.transcript.error = false;
-        this.updateLoadingUI('transcript');
     },
     transformReplyIntoThread: function (thread, parentId, highlightCommentId) {
         this.renderCommentSet(thread, null, null, {
@@ -826,41 +828,38 @@ var CommentSearchBoxDOM = {
             this.replySetContainer[commentId].parentNode.removeChild(this.replySetContainer[commentId]);
         }
     },
-    updateLoadingUI: function (loadType) {
-        let load_done;
-        let load_err;
+    setLoadingStatus: function (type, isLoading, hasError = false) {
         let iconContainer;
-
-        switch (loadType) {
-            case 'video':
-                load_done = !this.loadingStatus.video.loading;
-                load_err  = this.loadingStatus.video.error;
+        switch (type) {
+            case 'comments':
                 iconContainer = this.loadingTable__commentsRow__icon;
-                CommentSearchBoxDOM.loadingTable__commentsRow__data.innerText = CommentSearchBoxDOM.comments.length;
+                this.loadingStatus.video.loading = isLoading;
+                this.loadingTable__commentsRow__action.innerText = isLoading ? browser.i18n.getMessage('TEXT_LOAD_STOP') : browser.i18n.getMessage('TEXT_LOAD_RELOAD')
                 break;
             case 'transcript':
-                load_done = !this.loadingStatus.transcript.loading;
-                load_err  = this.loadingStatus.transcript.error;
                 iconContainer = this.loadingTable__transcriptionRow__icon;
-                CommentSearchBoxDOM.loadingTable__transcriptionRow__data.innerText = CommentSearchBoxDOM.transcripts.length;
-                break;  
+                this.loadingStatus.transcript.loading = isLoading;
+                this.loadingTable__transcriptRow__action.innerText = isLoading ? browser.i18n.getMessage('TEXT_LOAD_STOP') : browser.i18n.getMessage('TEXT_LOAD_RELOAD')
+                break;
         }
         
-        console.log('loadType', loadType, 'iconContainer', iconContainer)
+        let iconContainer_loadingClasses = ['blink', 'ri-chat-download-fill'];
+        let iconContainer_doneClasses = ['is-done-color', 'ri-chat-check-fill'];
+        let iconContainer_doneClasses_err = ['is-done-error-color', 'ri-chat-off-line'];
 
-        if (load_done) {
-            iconContainer.classList.remove('blink')
-            iconContainer.classList.remove('ri-chat-download-fill')
+        iconContainer.classList.remove(...iconContainer_loadingClasses);
+        iconContainer.classList.remove(...iconContainer_doneClasses);
+        iconContainer.classList.remove(...iconContainer_doneClasses_err);
 
-            if(!load_err){
-                iconContainer.classList.add('ri-chat-check-fill');
-                iconContainer.classList.add('is-done-color');
-            } else {
-                iconContainer.classList.add('ri-chat-off-line');
-                iconContainer.classList.add('is-done-error-color');
-            }        
+        if (hasError) {
+            iconContainer.classList.add(...iconContainer_doneClasses_err);
+            return;
+        }
+
+        if (isLoading) {
+            iconContainer.classList.add(...iconContainer_loadingClasses);
         } else {
-            // the thing is loading
+            iconContainer.classList.add(...iconContainer_doneClasses);
         }
 
     },
@@ -894,6 +893,7 @@ var CommentSearchBoxDOM = {
     renderCommentSet: function (commentSet, search, commentContainer = this.resList, commentSettings) {
         let title = document.createElement('h3');
         title.classList.add('comhunt__resultCount');
+        title.classList.add('t-color-inverse');
 
         if (commentSet.length > 1) {
             title.innerText = browser.i18n.getMessage("multipleResultMsg", commentSet.length);
@@ -921,7 +921,7 @@ var CommentSearchBoxDOM = {
     },
     // type = video or transcript
     updateCountUI: function (type) {
-        if (type == 'video') {
+        if (type == 'comments') {
             this.loadingTable__commentsRow__data.innerText = this.comments.length;
         } else if(type == 'transcript') {
             this.loadingTable__transcriptionRow__data.innerText = this.transcripts.length;
@@ -931,47 +931,44 @@ var CommentSearchBoxDOM = {
 
 function doneIfReady () {
     if (tabId != null) {
-        if (!CommentSearchBoxDOM.initialized) {
-
-            if (isYouTubePost()) {
-                setTimeout(function () {
-                    if (!document.querySelector("ytd-comments")) {
-                        doneIfReady();
-                    } else {
-                        CommentSearchBoxDOM.createInstance(document.querySelector("#contents"), document.querySelector('ytd-comments'));
-                       
-                        this.comments = [];
-                        sendCommandToWindow('REFRESH_INSTANCE');
-                    }
-                }, 300);
-            } else if (isYouTubeVideo()) {
-                setTimeout(function () {
-                    if (!document.querySelector("#below #comments")) {
-                        doneIfReady();
-                    } else {
-                        CommentSearchBoxDOM.createInstance(document.querySelector("#below"), document.querySelector('#below #comments'));
-                            
-                        this.comments = [];
-                        sendCommandToWindow('REFRESH_INSTANCE', {
-                            transcript: true,
-                            comments: true
-                        });
-                    }
-                }, 300);
-            } else if (isYouTubeShort()) {
-                // Get the element you want to observe
-               
-                waitForEl('ytd-section-list-renderer ytd-comments', (el) => {
-                    console.log('creating instance');
-                    CommentSearchBoxDOM.createInstance(document.querySelector("ytd-section-list-renderer ytd-comments").parentElement, document.querySelector("ytd-section-list-renderer ytd-comments"), {
-                        overflow: 'scroll',
-                        minHeight: '200px',
-                        margin: '0 auto'
+        if (isYouTubePost()) {
+            setTimeout(function () {
+                if (!document.querySelector("ytd-comments")) {
+                    doneIfReady();
+                } else {
+                    if (!CommentSearchBoxDOM.initialized) CommentSearchBoxDOM.createInstance(document.querySelector("#contents"), document.querySelector('ytd-comments'), {
+                        width: '852px',
+                        marginTop: '10px'
                     });
-                    sendCommandToWindow('REFRESH_INSTANCE');
-                })
-
-            }
+                   
+                    this.comments = [];
+                    sendCommandToWindow('REFRESH_INSTANCE', {
+                        comments: true, transcript: false
+                    });
+                }
+            }, 300);
+        } else if (isYouTubeVideo()) {
+            setTimeout(function () {
+                if (!document.querySelector("#below #comments")) {
+                    doneIfReady();
+                } else {
+                    if (!CommentSearchBoxDOM.initialized) CommentSearchBoxDOM.createInstance(document.querySelector("#below"), document.querySelector('#below #comments'));
+                        
+                    sendCommandToWindow('REFRESH_INSTANCE', {
+                        transcript: true,
+                        comments: true
+                    });
+                }
+            }, 300);
+        } else if (isYouTubeShort()) {
+            waitForEl('ytd-section-list-renderer ytd-comments', (el) => {
+                if (!CommentSearchBoxDOM.initialized) CommentSearchBoxDOM.createInstance(document.querySelector("ytd-section-list-renderer ytd-comments").parentElement, document.querySelector("ytd-section-list-renderer ytd-comments"), {
+                    overflow: 'scroll',
+                    minHeight: '200px',
+                    margin: '0 auto'
+                });
+                sendCommandToWindow('REFRESH_INSTANCE');
+            })
         }
     }
 }

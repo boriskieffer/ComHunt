@@ -22,8 +22,15 @@ https://github.com/boriskieffer/ComHunt/tree/dev
 - Sort by comment length, like count or publication date
 - Dark mode support
 
+## Supported comment types :
+- Youtube Video
+- YouTube Post
+- YouTube Shorts
+
 ## TODO
-- Bug fixes for YT Posts
 - More CPU-efficient highlighting implementation
-- YouTube Posts support
-- Support for Youtube Shorts (0%)
+
+# Known issues
+- Highlight may bug
+- Comment "search box" may not appear
+- On video change, transcript will sometimes append a "undefined" transcription, which will make the comment search input inresponsive due to exception

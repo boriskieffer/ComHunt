@@ -1,16 +1,18 @@
-console.log('Injected youtube_window.js')
+console.log('ComHunt - Injected youtube_window.js')
 const tabId = parseInt(document.querySelector("[data-tabid]").getAttribute("data-tabid"));
 const CLIENT_APIKEY = window.ytcfg.get('INNERTUBE_API_KEY');
 let SAPISIDHASH = null;
 let loadCounter = 0; // current comment requests count
-let currentInstanceType = null;
 
-let videoId = new URLSearchParams(this.window.location.search).get('v');
-
-let instanceInitialToken = null;
+let currentVideoId = null;
+let sent_ack_video_change = false;
 
 String.prototype.replaceAt = function(index, replacement) {
     return this.substring(0, index) + replacement + this.substring(index + replacement.length);
+}
+
+function log (data) {
+    console.log('%cComHunt%cyoutube_window.js : \n' + data, 'background: red; color: white');
 }
 
 function isYouTubeVideo () {
@@ -23,6 +25,10 @@ function isYouTubePost() {
 
 function isYouTubeShort() {
     return window.location.href.startsWith('https://www.youtube.com/shorts/');
+}
+
+function getCurrentVideoId() {
+    return new URLSearchParams(this.window.location.search).get('v');
 }
 
 const getInitialTokenFromReel = (reelId) => new Promise((resolve) => {
@@ -70,42 +76,40 @@ function refreshInstance (params) {
         })
     }
     if (isYouTubeVideo()) {
-        currentInstanceType = 'video';
-        if (params.transcript) {
-            loadVideoTranscript(videoId);
-        }
+        if (params) {
+            if (params.transcript) {
+                loadVideoTranscript(getCurrentVideoId());
+            }
 
-        if (params.comments) {
-            getInitialTokenFromVideoId(videoId).then(token => {
-                sendCommandToCS('SET_LOADING_STATUS', {
-                    loading_type: 'video',
-                    loading: true
-                })
-                initialTokenLoad(token);
-            });
+            if (params.comments) {
+                loadCounter = 1;
+                getInitialTokenFromVideoId(getCurrentVideoId()).then(token => {
+                    initialTokenLoad(token);
+                });
+            }
+        } else {
+            log('Received REFRESH_INSTANCE on "video" without params!')
         }
     } else if (isYouTubePost()) {
-        currentInstanceType = 'post';
+        loadCounter = 1;
         this.fetch(this.window.location.href).then(response => {
             response.text().then(html => {
                 const regex = /"continuationCommand":{"token":"(.+?)"/;
                 let continuationToken = html.match(regex)[1];
-                console.log('loading status to cs');
 
-                sendCommandToCS('SET_LOADING_STATUS', {
-                    loading_type: 'video',
-                    loading: true
-                })
-                console.log('end loading status to cs');
-
-
-                initialTokenLoad(continuationToken);
+                fetch("https://www.youtube.com/youtubei/v1/browse?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
+                    "body": "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20230327.01.00\"}},\"continuation\":\"" + continuationToken + "\"}",
+                    "method": "POST",
+                }).then(continuationResponse => {
+                    continuationResponse.json().then(continuationResponseJson => {
+                        continuationToken = continuationResponseJson.onResponseReceivedEndpoints[0].reloadContinuationItemsCommand.continuationItems[0].commentsHeaderRenderer.sortMenu.sortFilterSubMenuRenderer.subMenuItems[1].serviceEndpoint.continuationCommand.token
+                        initialTokenLoad(continuationToken);  
+                    });
+                });
                 
-
             })
         })
     } else if (isYouTubeShort()) {
-        currentInstanceType = 'shorts'
         let reelId = window.location.pathname.split('/')[2];
         getInitialTokenFromReel(reelId).then(continuationToken => {
             initialTokenLoad(continuationToken);
@@ -147,6 +151,8 @@ window.addEventListener('message', function (message) {
 
     switch (messageData.comhunt_command) {
         case 'REFRESH_INSTANCE':
+            log('Received REFRESH_INSTANCE order')
+            sent_ack_video_change = false;
             let params = messageData.comhunt_data || null;
             refreshInstance(params);
             break;
@@ -171,10 +177,12 @@ window.addEventListener('message', function (message) {
                 });
             }));
             break;
-        case 'stopLoadingComments':
-            loadCounter = 0;
-            instanceInitialToken = null;
-            sendLoadDone('video', false);
+        case 'LOAD_STOP':
+            let type = messageData.comhunt_data;
+            if (type == 'comments') {
+                loadCounter = 0;
+                sendLoadStatus('comments', false, false);
+            }
             break;
         default:
             console.log('Unknown command:', messageData.comhunt_command)
@@ -195,133 +203,135 @@ const getSApiSidHash = async function(SAPISID, origin) {
     return `${TIMESTAMP_MS}_${digest}`;
 }
 
-function load (initialContinuationToken, continuationToken, CLIENT_APIKEY, isReplySet = false, parentId = null) {
+function checkLoadVideoId (videoId) {
+    if (videoId != getCurrentVideoId()) {
+        if (!sent_ack_video_change) {
+            sendCommandToCS('ACK_VIDEO_CHANGE');
+            sent_ack_video_change = true;
+        }
+        return false;
+    }
+    return true;
+}
+
+function load (videoId, continuationToken, CLIENT_APIKEY, isReplySet = false, parentId = null) {
     let apiEndpoint = null;
     if (window.location.href.startsWith('https://www.youtube.com/watch?v=')) {
+        if (!checkLoadVideoId(videoId)) return;
+
         apiEndpoint = 'https://www.youtube.com/youtubei/v1/next?key=';
     } else if (isYouTubePost() || isYouTubeShort()) {
         apiEndpoint = 'https://www.youtube.com/youtubei/v1/browse?key=';
     }
    
-    if (initialContinuationToken == instanceInitialToken) {
-        fetch(apiEndpoint + CLIENT_APIKEY + "&prettyPrint=false", {
-            "body": "{\"context\":{\"client\":{\"hl\":\"" + navigator.language + "\",\"clientName\":\"WEB\",\"clientVersion\":\"2.20230221.06.00\"}},\"continuation\":\"" + continuationToken + "\"}",
-            "headers": {
-                "Authorization": "SAPISIDHASH " + SAPISIDHASH,
-            },
-            "method": "POST"
-        }).then(response => {
-            response.json().then(json => {
-                let continuationItems = null;
-                if (json.onResponseReceivedEndpoints[1] != null) {
-                    continuationItems = json.onResponseReceivedEndpoints[1].reloadContinuationItemsCommand.continuationItems;
-                } else {
-                    continuationItems = json.onResponseReceivedEndpoints[0].appendContinuationItemsAction.continuationItems;
-                }
-
-                if (continuationItems != null) {
-                    continuationItems.forEach(continuationItem => {
-                        let comment = null;
-
-                        // if it's a parent comment
-                        if (continuationItem.commentThreadRenderer != null) {
-                            comment = continuationItem.commentThreadRenderer.comment.commentRenderer;
-
-                            // load replies using token if got any replies
-                            if (continuationItem.commentThreadRenderer.replies != null) {
-                                load(initialContinuationToken, continuationItem.commentThreadRenderer.replies.commentRepliesRenderer.contents[0].continuationItemRenderer.continuationEndpoint.continuationCommand.token, CLIENT_APIKEY, true, comment.commentId)
-                                loadCounter++;
-                            }
+    fetch(apiEndpoint + CLIENT_APIKEY + "&prettyPrint=false", {
+        "body": "{\"context\":{\"client\":{\"hl\":\"" + navigator.language + "\",\"clientName\":\"WEB\",\"clientVersion\":\"2.20230221.06.00\"}},\"continuation\":\"" + continuationToken + "\"}",
+        "headers": {
+            "Authorization": "SAPISIDHASH " + SAPISIDHASH,
+        },
+        "method": "POST"
+    }).then(response => {
+        response.json().then(json => {
+            let continuationItems = null;
+            if (json.onResponseReceivedEndpoints[1] != null) {
+                continuationItems = json.onResponseReceivedEndpoints[1].reloadContinuationItemsCommand.continuationItems;
+            } else {
+                continuationItems = json.onResponseReceivedEndpoints[0].appendContinuationItemsAction.continuationItems;
+            }
+            if (continuationItems != null) {
+                continuationItems.forEach(continuationItem => {
+                    let comment = null;
+                    // if it's a parent comment
+                    if (continuationItem.commentThreadRenderer != null) {
+                        comment = continuationItem.commentThreadRenderer.comment.commentRenderer;
+                        // load replies using token if got any replies
+                        if (continuationItem.commentThreadRenderer.replies != null && loadCounter > 0) {
+                            loadCounter++;
+                            load(videoId, continuationItem.commentThreadRenderer.replies.commentRepliesRenderer.contents[0].continuationItemRenderer.continuationEndpoint.continuationCommand.token, CLIENT_APIKEY, true, comment.commentId)
                         }
-                        // otherwise it's probably a reply
-                        else if (isReplySet && continuationItem.commentRenderer != null) {
-                            comment = continuationItem.commentRenderer;
+                    }
+                    // otherwise it's probably a reply
+                    else if (isReplySet && continuationItem.commentRenderer != null) {
+                        comment = continuationItem.commentRenderer;
+                    }
+                    // append the comment
+                    if (comment != null && loadCounter > 0 && videoId == getCurrentVideoId()) {
+                        let commentRuns = comment.contentText.runs;
+                        let isChannelOwner = comment.authorIsChannelOwner;
+                        let authorName = comment.authorText.simpleText;
+                        let authorChannel = comment.authorEndpoint.browseEndpoint.canonicalBaseUrl;
+                        let timeText = comment.publishedTimeText.runs[0].text;
+                        let commentId = comment.commentId;
+                        let voteCount = comment.voteCount != null ? comment.voteCount.simpleText : 0;
+                        let isHearted = comment.actionButtons != null && comment.actionButtons.commentActionButtonsRenderer.creatorHeart != null;
+                        let isPinned = comment.pinnedCommentBadge != null;
+                        let authorThumbnail = comment.authorThumbnail.thumbnails[0].url; // 48x48 profile picture
+                        let isLiked = comment.isLiked;
+                        let likeActionEndpoint;
+                        let toggleActionButton;
+                        // only if user is logged
+                        if (comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint) {
+                            likeActionEndpoint = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint.performCommentActionEndpoint.action;
+                            toggleActionButton = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.toggledServiceEndpoint.performCommentActionEndpoint.action;
                         }
-
-                        // append the comment
-                        if (comment != null) {
-
-                            let commentRuns = comment.contentText.runs;
-                            let isChannelOwner = comment.authorIsChannelOwner;
-                            let authorName = comment.authorText.simpleText;
-                            let authorChannel = comment.authorEndpoint.browseEndpoint.canonicalBaseUrl;
-                            let timeText = comment.publishedTimeText.runs[0].text;
-                            let commentId = comment.commentId;
-                            let voteCount = comment.voteCount != null ? comment.voteCount.simpleText : 0;
-                            let isHearted = comment.actionButtons != null && comment.actionButtons.commentActionButtonsRenderer.creatorHeart != null;
-                            let isPinned = comment.pinnedCommentBadge != null;
-                            let authorThumbnail = comment.authorThumbnail.thumbnails[0].url; // 48x48 profile picture
-                            let isLiked = comment.isLiked;
-
-                            let likeActionEndpoint;
-                            let toggleActionButton;
-                            // only if user is logged
-                            if (comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint) {
-                                likeActionEndpoint = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint.performCommentActionEndpoint.action;
-                                toggleActionButton = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.toggledServiceEndpoint.performCommentActionEndpoint.action;
-                            }
-
-                            if (isHearted) {
-                                let videoOwnerThumbnail = comment.actionButtons.commentActionButtonsRenderer.creatorHeart.creatorHeartRenderer.creatorThumbnail.thumbnails[0].url;
-                                sendCommandToCS('SET_AUTHOR_THUMBNAIL', {
-                                    videoAuthorProfilePicture: videoOwnerThumbnail
-                                })
-                            }
-
-                            sendCommandToCS('append_comment',{
-                                commentId,
-                                isChannelOwner,
-                                authorName,
-                                authorChannel,
-                                authorThumbnail,
-                                timeText,
-                                commentRuns,
-                                parentId,
-                                isHearted,
-                                isPinned,
-                                voteCount,
-                                isLiked,
-                                likeActionEndpoint,
-                                toggleActionButton
-                            });
+                        if (isHearted) {
+                            let videoOwnerThumbnail = comment.actionButtons.commentActionButtonsRenderer.creatorHeart.creatorHeartRenderer.creatorThumbnail.thumbnails[0].url;
+                            sendCommandToCS('SET_AUTHOR_THUMBNAIL', {
+                                videoAuthorProfilePicture: videoOwnerThumbnail
+                            })
                         }
-
-                        // generally contains token for loading next comments (next "page"), if it doesn't then it's the end of loading comments??
-                        else if (continuationItem.continuationItemRenderer != null) {
-                            if (continuationItem.continuationItemRenderer.trigger == 'CONTINUATION_TRIGGER_ON_ITEM_SHOWN') {
-                                let nextContinuationToken = continuationItem.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
-                                load(initialContinuationToken, nextContinuationToken, CLIENT_APIKEY, false, null);
-                                loadCounter++;
-                            }
-
-                            // probably "show more" button
-                            else if (continuationItem.continuationItemRenderer.button != null) {
-                                load(initialContinuationToken, continuationItem.continuationItemRenderer.button.buttonRenderer.command.continuationCommand.token, CLIENT_APIKEY, true, parentId);
-                                loadCounter++;
-                            }
+                        sendCommandToCS('append_comment',{
+                            commentId,
+                            isChannelOwner,
+                            authorName,
+                            authorChannel,
+                            authorThumbnail,
+                            timeText,
+                            commentRuns,
+                            parentId,
+                            isHearted,
+                            isPinned,
+                            voteCount,
+                            isLiked,
+                            likeActionEndpoint,
+                            toggleActionButton
+                        });
+                    }
+                    // generally contains token for loading next comments (next "page"), if it doesn't then it's the end of loading comments??
+                    else if (continuationItem.continuationItemRenderer != null) {
+                        if (continuationItem.continuationItemRenderer.trigger == 'CONTINUATION_TRIGGER_ON_ITEM_SHOWN' && loadCounter > 0) {
+                            let nextContinuationToken = continuationItem.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+                            loadCounter++;
+                            load(videoId, nextContinuationToken, CLIENT_APIKEY, false, null);
                         }
-                    });
-
-                    // checks if the last element of continuationItems is a commentThreadRenderer.. if so, then it means that all parent comments finished loaded since it has no token for last element
-                    if (loadCounter <= 0) {
-                        sendLoadDone('video', false);
-                    } 
-                    loadCounter--;
-                }
-            });
+                        // probably "show more" button
+                        else if (continuationItem.continuationItemRenderer.button != null && loadCounter > 0) {
+                            loadCounter++;
+                            load(videoId, continuationItem.continuationItemRenderer.button.buttonRenderer.command.continuationCommand.token, CLIENT_APIKEY, true, parentId);
+                        }
+                    }
+                });
+            }
+            loadCounter--;
+            if (loadCounter == 0) {
+                // No more loads, send a notification to our commentsearchbox instance
+                sendLoadStatus('comments', false, false);
+                return;
+            }
         });
-    } 
+    });
 }
 
-function sendLoadDone(loadType, hasError) {
+function sendLoadStatus(loadType, loadingStatus, hasError) {
     sendCommandToCS('SET_LOADING_STATUS', {
         loading_type: loadType,
-        loading: false,
+        loading: loadingStatus,
         error: hasError
     })
 }
 
 function loadVideoTranscript(videoId) {
+    sendLoadStatus('transcript', true, false);
     fetch("https://www.youtube.com/youtubei/v1/player?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
         "body": "{\"context\":{\"client\":{\"hl\":\"" + navigator.language + "\",\"clientName\":\"WEB\",\"clientVersion\":\"2.20230309.08.00\"},\"adSignalsInfo\":{\"params\":[]}},\"videoId\":\"" + videoId+ "\"}",
         "method": "POST"
@@ -330,7 +340,7 @@ function loadVideoTranscript(videoId) {
             if (json.captions) {
                 let captionUrl = json.captions.playerCaptionsTracklistRenderer.captionTracks[0].baseUrl;
                 captionUrl += '&fmt=json3';
-
+    
                 fetch(captionUrl).then(response => {
                     response.json().then(jsonTranscript => {
                         jsonTranscript.events.forEach(transcriptData => {
@@ -342,24 +352,25 @@ function loadVideoTranscript(videoId) {
         
                                 sendCommandToCS('APPEND_TRANSCRIPT', {
                                     transcriptText,
-                                    start: (transcriptData.tStartMs / 1000)                                            
+                                    start: (transcriptData.tStartMs / 1000)
                                 });
                             }
                         })
-                        sendLoadDone('transcript', false);
-                        //this.loadingTable__transcriptionRow__data.innerText = this.transcripts.length + ' (' + json.captions.playerCaptionsTracklistRenderer.captionTracks[0].name.simpleText + ')';
+                        // transcript load is done, send notification to our commentsearchbox instance 
+                        sendLoadStatus('transcript', false, false);
                     })
                 });
             } else {
-                sendLoadDone('transcript', true);
+                // transcript load has error, send notification to our commentsearchbox instance 
+                sendLoadStatus('transcript', false, true);
             }
         })
     });
 }
 
 function initialTokenLoad (continuationToken = null) {
-    instanceInitialToken = continuationToken;
-    console.log('[.initialTokenLoad] Loading with token', instanceInitialToken)
+    console.log('[.initialTokenLoad] Loading with token', continuationToken)
 
-    load(instanceInitialToken, instanceInitialToken, CLIENT_APIKEY, false, null)
+    sendLoadStatus('comments', true, false);
+    load(getCurrentVideoId(), continuationToken, CLIENT_APIKEY, false, null)
 }

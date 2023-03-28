@@ -41,6 +41,12 @@
     "heartedByVideoOwner": {
         "message": "L'auteur de la vidéo adore ceci"
     },
+    "TEXT_LOAD_STOP": {
+        "message": "(arrêter)"
+    },
+    "TEXT_LOAD_RELOAD": {
+        "message": "(recharger)"
+    },
     "multipleResultMsg": {
         "message": "$count$ résultats",
         "placeholders": {

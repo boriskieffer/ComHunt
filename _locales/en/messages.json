@@ -41,6 +41,12 @@
     "heartedByVideoOwner": {
         "message": "Hearted by video publisher"
     },
+    "TEXT_LOAD_STOP": {
+        "message": "(stop)"
+    },
+    "TEXT_LOAD_RELOAD": {
+        "message": "(reload)"
+    },
     "multipleResultMsg": {
         "message": "$count$ results",
         "placeholders": {
