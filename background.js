@@ -26,6 +26,21 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
     }
 });
 
+chrome.runtime.onInstalled.addListener(async function(details) {
+    if (details.reason == 'update') return;
+    browser.tabs.query({url: "https://www.youtube.com/*"}).then(async function (tabs) {
+        tabs.forEach(async function (tab) {
+            let tabId = tab.id;
+            await browser.tabs.executeScript(tabId, {file: 'comhunt.js'}).then(async function() {
+                await browser.tabs.sendMessage(tabId, {
+                    comhunt_command: 'setTabId',
+                    comhunt_data: {new_tabId: tabId}
+                });
+            });
+        })
+    })
+});
+
 chrome.tabs.onRemoved.addListener(function(tabId) {
     delete tabInstances[tabId];
 })
