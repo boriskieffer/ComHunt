@@ -47,6 +47,9 @@
     "TEXT_LOAD_RELOAD": {
         "message": "(reload)"
     },
+    "TEXT_LOAD_CACHED": {
+        "message": "Cached"
+    },
     "multipleResultMsg": {
         "message": "$count$ results",
         "placeholders": {
