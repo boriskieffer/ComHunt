@@ -45,7 +45,7 @@ const getInitialTokenFromReel = (reelId) => new Promise((resolve) => {
     })
 });
 
-const getInitialTokenFromVideoId = (videoId) => new Promise((resolve, reject) => {
+const getInitialTokenFromVideoId = (videoId) => new Promise((resolve) => {
     fetch("https://www.youtube.com/youtubei/v1/next?key=" + CLIENT_APIKEY + "&prettyPrint=false", {
         "body": "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20230301.09.00\"}},\"videoId\":\"" + videoId + "\"}",
         "method": "POST",
@@ -57,15 +57,12 @@ const getInitialTokenFromVideoId = (videoId) => new Promise((resolve, reject) =>
                     renderer => renderer.itemSectionRenderer != null && renderer.itemSectionRenderer.sectionIdentifier == 'comment-item-section'
                 );
                 continuationToken = continuationToken[continuationToken.length-1].itemSectionRenderer.contents;
-                if (continuationToken[continuationToken.length-1].continuationItemRenderer) {
-                    continuationToken = continuationToken[continuationToken.length-1].continuationItemRenderer.continuationEndpoint.continuationCommand.token;
-                    // when sorting from newest to older instead of top comments, all comments display correctly... ??
-                    continuationToken = continuationToken.replaceAt(47, 'B')
-                    resolve(continuationToken);
-                } else {
-                    reject('NULL_TOKEN');
-                }
+                continuationToken = continuationToken[continuationToken.length-1].continuationItemRenderer.continuationEndpoint.continuationCommand.token;
 
+                // when sorting from newest to older instead of top comments, all comments display correctly... ??
+                continuationToken = continuationToken.replaceAt(47, 'B')
+
+                resolve(continuationToken)
             })
         } catch {
             alert('ComHunt -- Error when getting initial token')
@@ -90,8 +87,6 @@ function refreshInstance (params) {
                 loadCounter = 1;
                 getInitialTokenFromVideoId(getCurrentVideoId()).then(token => {
                     initialTokenLoad(token);
-                }).catch(() => {
-                    sendLoadStatus('comments', false, true);
                 });
             }
         } else {
@@ -265,7 +260,7 @@ function load (videoId, continuationToken, CLIENT_APIKEY, isReplySet = false, pa
                     if (comment != null && loadCounter > 0 && videoId == getCurrentVideoId()) {
                         let commentRuns = comment.contentText.runs;
                         let isChannelOwner = comment.authorIsChannelOwner;
-                        let authorName = comment.authorText.simpleText || "COMHUNT_UNKNOWN_NAME";
+                        let authorName = comment.authorText.simpleText;
                         let authorChannel = comment.authorEndpoint.browseEndpoint.canonicalBaseUrl;
                         let timeText = comment.publishedTimeText.runs[0].text;
                         let commentId = comment.commentId;

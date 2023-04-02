@@ -39,16 +39,3 @@ function update_settings(key, value) {
         })
     });
 }
-
-browser.storage.local.get('cache').then(cacheData => {
-    document.getElementById('cache_size').innerText = "~"+parseInt(JSON.stringify(cacheData).length / 1024) + 'KB'
-});
-
-document.getElementById('reset_cache').addEventListener('click', function () {
-    let cacheData = {cache: {}}
-    browser.storage.local.set(cacheData).then(function () {
-        browser.storage.local.get('cache').then(cacheData => {
-            document.getElementById('cache_size').innerText = "~"+parseInt(JSON.stringify(cacheData).length / 1024) + 'KB'
-        });
-    })
-})

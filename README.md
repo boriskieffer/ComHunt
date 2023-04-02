@@ -29,7 +29,6 @@ https://github.com/boriskieffer/ComHunt/tree/dev
 
 ## TODO
 - More CPU-efficient highlighting implementation
-- Replace "getId()" with actual instance identifier & type
 
 # Known issues
 - Highlight may bug

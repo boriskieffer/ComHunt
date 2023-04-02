@@ -47,9 +47,6 @@
     "TEXT_LOAD_RELOAD": {
         "message": "(recharger)"
     },
-    "TEXT_LOAD_CACHED": {
-        "message": "En cache"
-    },
     "multipleResultMsg": {
         "message": "$count$ résultats",
         "placeholders": {
