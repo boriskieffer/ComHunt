@@ -264,6 +264,7 @@ function renderCommentFromRuns(runs, container) {
                 currentParagraphContainer.classList.add('t-color-inverse');
             }
         }
+        
 
         // highlight
         let matches = {
@@ -273,10 +274,18 @@ function renderCommentFromRuns(runs, container) {
         let search = CommentSearchBoxDOM.searchBox.value;
         let searchIndex = 0;
 
-        if (settings.enable_highlight) {
+
+        // finalRunTextEl will be undefined on empty line (return)
+        if (settings.enable_highlight && finalRunTextEl != undefined) {
+
             for (var runCharIndex=0; runCharIndex<runText.length; runCharIndex++) {
                 // checks if characters are contiguous
-                if (finalRunTextEl.innerText[runCharIndex].toLowerCase() == search[searchIndex].toLowerCase()) {
+                if (finalRunTextEl.alt) {
+                    console.log(finalRunTextEl.alt.charCodeAt(), '==', search.charCodeAt(searchIndex), 'is ', finalRunTextEl.alt == search[searchIndex]);
+
+                }
+
+                if ((finalRunTextEl != undefined && finalRunTextEl.innerText && finalRunTextEl.innerText[runCharIndex].toLowerCase() == search[searchIndex].toLowerCase()) || finalRunTextEl.alt && (finalRunTextEl.alt.charCodeAt() == search.charCodeAt(searchIndex))) {
                     // if the current search index is smaller than searchbox text length then
                     // search.length-1 because string length starts at 1 and searchIndex starts at 0
                     if (searchIndex < search.length-1) {

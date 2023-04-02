@@ -42,6 +42,10 @@ input:focus {
 	vertical-align: middle;;
 }
 
+.comhunt__commentParagraph::after {
+	content: "\00a0"; /* used for empty lines */
+}
+
 .comhunt__commentTextContainer p {
 	font-size: 13px;
 }
