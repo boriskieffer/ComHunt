@@ -20,7 +20,7 @@ function isYouTubeShort() {
 }
 
 function getId() {
-    if (isYouTubeVideo()) {
+    if (isYouTubeVideo()) {
         return new URLSearchParams(this.window.location.search).get('v');
     }
     return null;
@@ -308,62 +308,42 @@ function renderCommentFromRuns(runs, container) {
 }
 
 function subsplit (str, startIdx, endIdx) {
-    if (startIdx > 0) {
-        return [{text: str.substring(0, startIdx)}, { mark: true, text: str.substring(startIdx, endIdx) }, {text: str.substring(endIdx)}]
-    } else {
-        return [{ mark: true, text: str.substring(startIdx, endIdx) }, {text: str.substring(endIdx)}]
-    }
-}
-
-function submatch (str, pattern, startIdx, endIdx) {
-    return str.substring(startIdx, endIdx) == pattern;
+    return [{ mark: false, text: str.substring(0, startIdx) }, { mark: true, text: str.substring(startIdx, endIdx) }, {text: str.substring(endIdx)}]
 }
 
 function highlight (matchesData) {
     let el = matchesData.el;
     let text = el.textContent;
-    console.log(('%ctextContent: '+ text), 'background:blue;color:white')
-
     if (matchesData.occurences.length > 0) {
         el.textContent = null;
-
         let processing = text;
         let final = [];
         let idxMinus = 0;
-        matchesData.occurences.forEach(matchData => {
-            console.log('matchData:', matchData)
+        matchesData.occurences.forEach((matchData, matchIdx) => {
             const startIdx = matchData.startIdx - idxMinus;
             const endIdx   = matchData.endIdx - idxMinus;
     
-            console.log('%cprocessing "' + processing + '"', "background:red")
-            console.log(subsplit(processing, startIdx, endIdx))
             let spl = subsplit(processing, startIdx, endIdx);
-            processing = spl[spl.length-1].text
-    
-            spl.forEach(splitData => {
-                final.push(splitData)
-            })
-            
-             idxMinus += endIdx;
+            processing = spl[spl.length-1].text;
+            if (matchesData.occurences.length > 1 && matchIdx +1 < matchesData.occurences.length) {
+                spl.pop();                
+            }
+
+            spl.forEach((splitData) => final.push(splitData))
+
+            idxMinus += endIdx;
         });
     
-        console.log('final');
-        console.log(final);
-        console.log('---')
         final.forEach(finalObj => {
             if (finalObj.mark) {
                 let mark = document.createElement('mark');
                 mark.innerText = finalObj.text;
                 el.append(mark);
             } else {
-                console.log(finalObj.text);
                 el.append(document.createTextNode(finalObj.text));
             }
         })
     }
-
-   
-
 }
 
 var CommentSearchBoxDOM = {
