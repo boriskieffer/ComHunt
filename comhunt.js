@@ -19,6 +19,13 @@ function isYouTubeShort() {
     return window.location.href.startsWith('https://www.youtube.com/shorts/');
 }
 
+function getId() {
+    if (isYouTubeVideo()) {
+        return new URLSearchParams(this.window.location.search).get('v');
+    }
+    return null;
+}
+
 // sends message to window
 function sendCommandToWindow (comhunt_command, comhunt_data = null) {
     window.postMessage({
@@ -173,10 +180,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
         case 'REFRESH_INSTANCE':
             // pass the message to "window" script
-            if (instanceUrl == null) {
-                CommentSearchBoxDOM.resetInstance();
-                doneIfReady();
-            } else if (isYouTubeVideo() && CommentSearchBoxDOM.loadingStatus.video.loading == false) {
+            if (instanceUrl == null || (isYouTubeVideo() && CommentSearchBoxDOM.loadingStatus.video.loading == false)) {
                 CommentSearchBoxDOM.resetInstance();
                 doneIfReady();
             }
@@ -202,10 +206,6 @@ function renderCommentFromRuns(runs, container) {
     let currentParagraphContainer = document.createElement('p');
     currentParagraphContainer.classList.add('comhunt__commentParagraph');
     currentParagraphContainer.classList.add('t-color-inverse')
-
-    let matches = [];
-    let search = CommentSearchBoxDOM.searchBox.value;
-    let searchIndex = 0;
     
     runs.forEach((run, runIndex) => {
         let runText = run.text;
@@ -266,33 +266,38 @@ function renderCommentFromRuns(runs, container) {
         }
 
         // highlight
+        let matches = {
+            el: finalRunTextEl,
+            occurences: []
+        };
+        let search = CommentSearchBoxDOM.searchBox.value;
+        let searchIndex = 0;
+
         if (settings.enable_highlight) {
             for (var runCharIndex=0; runCharIndex<runText.length; runCharIndex++) {
-                if (runText[runCharIndex].toLowerCase() == search[searchIndex].toLowerCase()) {
-
+                // checks if characters are contiguous
+                if (finalRunTextEl.innerText[runCharIndex].toLowerCase() == search[searchIndex].toLowerCase()) {
+                    // if the current search index is smaller than searchbox text length then
+                    // search.length-1 because string length starts at 1 and searchIndex starts at 0
                     if (searchIndex < search.length-1) {
-                        let currentEl = matches.filter(element => element.el == finalRunTextEl)[0];
-                        if (!currentEl) {
-                            matches.push({
-                                el: finalRunTextEl,
-                                startIdx: runCharIndex
-                            });
-                        } else {
-                            currentEl.endIdx = runCharIndex;
-                        }
-
                         searchIndex++;
-                    } else {
-                        highlight(matches);
-                        searchIndex = 0;       
-                        matches = [];                 
                     }
-                } else { // non-contiguous
-                    searchIndex = 0;
-                    matches = [];
+                    // if the current search index if greater than searchbox text length then
+                    else {
+                        matches.occurences.push({startIdx: runCharIndex - (search.length-1), endIdx: runCharIndex+1})
+                        // we reset search index so that the search index of searchbox is 0 (ex: thanks), if we search "th"
+                        // searchIndex will be "2" and must be reset to 0 to
+                        // actually reset the searchIndex to find next occurence
+                        searchIndex = 0;
+                    }
                 }
-
+                // non-contiguous, we reset searchIndex and delete last match
+                else {
+                    searchIndex = 0;
+                }
             }
+
+            highlight(matches);
         }
 
         if (runIndex+1 == runs.length) {
@@ -302,22 +307,63 @@ function renderCommentFromRuns(runs, container) {
 
 }
 
-function highlight (matches) {
-    matches.forEach(match => {
-        const startIdx = match.startIdx;
-        const endIdx   = match.endIdx +2 || startIdx.startIdx +1;
-        const text     = match.el.textContent;
+function subsplit (str, startIdx, endIdx) {
+    if (startIdx > 0) {
+        return [{text: str.substring(0, startIdx)}, { mark: true, text: str.substring(startIdx, endIdx) }, {text: str.substring(endIdx)}]
+    } else {
+        return [{ mark: true, text: str.substring(startIdx, endIdx) }, {text: str.substring(endIdx)}]
+    }
+}
 
-        const startTxt = text.substring(0, startIdx);
-        const markTxt  = text.substring(startIdx, endIdx);
-        const endTxt   = text.substring(endIdx);
+function submatch (str, pattern, startIdx, endIdx) {
+    return str.substring(startIdx, endIdx) == pattern;
+}
 
-        const markEl = document.createElement('mark');
-        markEl.textContent = markTxt;
+function highlight (matchesData) {
+    let el = matchesData.el;
+    let text = el.textContent;
+    console.log(('%ctextContent: '+ text), 'background:blue;color:white')
 
-        match.el.textContent = null;
-        match.el.append(startTxt, markEl, endTxt);
-    })
+    if (matchesData.occurences.length > 0) {
+        el.textContent = null;
+
+        let processing = text;
+        let final = [];
+        let idxMinus = 0;
+        matchesData.occurences.forEach(matchData => {
+            console.log('matchData:', matchData)
+            const startIdx = matchData.startIdx - idxMinus;
+            const endIdx   = matchData.endIdx - idxMinus;
+    
+            console.log('%cprocessing "' + processing + '"', "background:red")
+            console.log(subsplit(processing, startIdx, endIdx))
+            let spl = subsplit(processing, startIdx, endIdx);
+            processing = spl[spl.length-1].text
+    
+            spl.forEach(splitData => {
+                final.push(splitData)
+            })
+            
+             idxMinus += endIdx;
+        });
+    
+        console.log('final');
+        console.log(final);
+        console.log('---')
+        final.forEach(finalObj => {
+            if (finalObj.mark) {
+                let mark = document.createElement('mark');
+                mark.innerText = finalObj.text;
+                el.append(mark);
+            } else {
+                console.log(finalObj.text);
+                el.append(document.createTextNode(finalObj.text));
+            }
+        })
+    }
+
+   
+
 }
 
 var CommentSearchBoxDOM = {
@@ -358,7 +404,7 @@ var CommentSearchBoxDOM = {
         let loadingTable = document.createElement('table');
         
         // <table><tr>
-        let loadingTable__commentsRow = document.createElement('tr');
+        this.loadingTable__commentsRow = document.createElement('tr');
         // <table><tr><td>
         this.loadingTable__commentsRow__icon = document.createElement('td');
         this.loadingTable__commentsRow__icon.style.fontSize = '18px';
@@ -382,6 +428,7 @@ var CommentSearchBoxDOM = {
                 sendCommandToWindow('LOAD_STOP', 'comments')
             } else {
                 this.comments = [];
+                this.deleteFromCache('comments', getId())
                 this.updateCountUI('comments');
                 this.loadingTable__commentsRow__icon.classList.add('ri-chat-download-fill');
                 this.loadingTable__commentsRow__icon.classList.add('blink');
@@ -391,11 +438,21 @@ var CommentSearchBoxDOM = {
                 })
             }
         })
-        // inserts x4 <table><tr><td> 
-        loadingTable__commentsRow.append(this.loadingTable__commentsRow__icon, loadingTable__commentsRow__title, this.loadingTable__commentsRow__data, this.loadingTable__commentsRow__action)
 
+        this.loadingTable__commentsRow__cachedIndicator = document.createElement('td');
+        this.loadingTable__commentsRow__cachedIndicator.innerText = browser.i18n.getMessage('TEXT_LOAD_CACHED');
+        this.loadingTable__commentsRow__cachedIndicator.style.fontSize = '9px';
+        this.loadingTable__commentsRow__cachedIndicator.classList.add('comhunt__load_cachedIndicator')
+    
+        this.loadingTable__transcriptRow__cachedIndicator = document.createElement('td');
+        this.loadingTable__transcriptRow__cachedIndicator.innerText = browser.i18n.getMessage('TEXT_LOAD_CACHED');
+        this.loadingTable__transcriptRow__cachedIndicator.style.fontSize = '9px';
+        this.loadingTable__transcriptRow__cachedIndicator.classList.add('comhunt__load_cachedIndicator')
+
+        // inserts x4 <table><tr><td> 
+        this.loadingTable__commentsRow.append(this.loadingTable__commentsRow__icon, loadingTable__commentsRow__title, this.loadingTable__commentsRow__data, this.loadingTable__commentsRow__action)
         // <table><tr>
-        let loadingTable__transcriptionRow = document.createElement('tr');
+        this.loadingTable__transcriptionRow = document.createElement('tr');
         // <table><tr><td>
         this.loadingTable__transcriptionRow__icon = document.createElement('td');
         this.loadingTable__transcriptionRow__icon.style.fontSize = '18px';
@@ -417,20 +474,17 @@ var CommentSearchBoxDOM = {
             this.loadingTable__transcriptRow__action.innerText = browser.i18n.getMessage('TEXT_LOAD_STOP');;
             this.transcripts = [];
             this.updateCountUI('transcript');
-            //this.loadingTable__transcript__icon.classList.add('ri-chat-download-fill');
-            //this.loadingTable__transcript__icon.classList.add('blink');
-            //this.loadingTable__transcript__icon.classList.remove('is-done-color')
             sendCommandToWindow('REFRESH_INSTANCE', {
                 transcript: true
             })
         })
         // inserts x4 <table><tr><td> 
-        loadingTable__transcriptionRow.append(this.loadingTable__transcriptionRow__icon, loadingTable__transcriptionRow__title, this.loadingTable__transcriptionRow__data, this.loadingTable__transcriptRow__action)
+        this.loadingTable__transcriptionRow.append(this.loadingTable__transcriptionRow__icon, loadingTable__transcriptionRow__title, this.loadingTable__transcriptionRow__data, this.loadingTable__transcriptRow__action)
         
         // inserts <table><tr>
-        loadingTable.append(loadingTable__commentsRow);
+        loadingTable.append(this.loadingTable__commentsRow);
         if (isYouTubeVideo()) {
-            loadingTable.append(loadingTable__transcriptionRow)
+            loadingTable.append(this.loadingTable__transcriptionRow)
         }
 
         // inserts <table>
@@ -499,6 +553,8 @@ var CommentSearchBoxDOM = {
 
         this.searchBox.addEventListener('keypress', (event) => {
             if (event.key === "Enter") {
+                try {
+
                 let results = this.comments.filter(
                     commentData => {
                         let searchInput = !settings.enable_caseSensitive ? this.searchBox.value.toLowerCase() : this.searchBox.value;
@@ -517,6 +573,8 @@ var CommentSearchBoxDOM = {
 
                 if (results) this.renderCommentSet(results, this.searchBox.value);
                 if (transcriptResults) this.renderTranscriptSet(transcriptResults);
+            } catch(ex) { alert(ex)}
+
             }
         });
 
@@ -577,6 +635,9 @@ var CommentSearchBoxDOM = {
             this.resList = _resList;
         }
 
+        console.log('deleting rows', this.loadingTable__commentsRow__cachedIndicator);
+        this.loadingTable__commentsRow__cachedIndicator.remove();
+        this.loadingTable__transcriptRow__cachedIndicator.remove();
         this.updateCountUI('transcript');
         this.updateCountUI('comments');
         this.setLoadingStatus('comments', false);
@@ -863,10 +924,18 @@ var CommentSearchBoxDOM = {
             return;
         }
 
+        console.log('received', isLoading, ' loading status for', type)
+
         if (isLoading) {
             iconContainer.classList.add(...iconContainer_loadingClasses);
         } else {
             iconContainer.classList.add(...iconContainer_doneClasses);
+
+            // cache
+            let id = getId();
+            if (id != null) {
+                CommentSearchBoxDOM.setCache(type, getId(), this.comments);
+            }
         }
 
     },
@@ -927,16 +996,79 @@ var CommentSearchBoxDOM = {
         })
     },
     // type = video or transcript
-    updateCountUI: function (type) {
+    updateCountUI: function (type, isCached = false) {
         if (type == 'comments') {
             this.loadingTable__commentsRow__data.innerText = this.comments.length;
         } else if(type == 'transcript') {
             this.loadingTable__transcriptionRow__data.innerText = this.transcripts.length;
         }
-    }
+    },
+    getFromCache: function (type, id) {
+        return new Promise((resolve, reject) => {
+            browser.storage.local.get("cache").then(cacheData => {
+                try {
+                    if (cacheData['cache']) {
+                        let cacheDataId = cacheData['cache'][type+'_'+id]
+                        if (cacheDataId !== undefined) {
+                            resolve(cacheDataId);
+                        } else {
+                            reject('NO_CACHE_ENTRY');
+                        }
+                    } else {
+                        let cacheData = {cache: {}}
+                        browser.storage.local.set(cacheData).then(function () {
+                            reject('NO_CACHE');
+                        })
+                    }
+                    
+                } catch (ex) {
+                    reject('UNKNOWN_ERR');
+                }
+            });
+        })
+    },
+    setCache: function (type, id, data) {
+        return new Promise((resolve) => {
+            browser.storage.local.get('cache').then(cacheData => {
+                cacheData.cache[type+'_'+id] = JSON.stringify(data)
+                console.log('new element cache size count is',Object.keys(cacheData.cache).length)
+
+                // @todo check if "cache" setting in on
+                browser.storage.local.set(cacheData).then(response => {
+                    if (type == 'comments') {
+                        this.loadingTable__commentsRow.appendChild(this.loadingTable__commentsRow__cachedIndicator);
+                    } else
+                    if (type == 'transcript') {
+                        this.loadingTable__transcriptionRow.appendChild(this.loadingTable__transcriptRow__cachedIndicator);
+                    }
+                    
+                    resolve(true);
+                })
+            })
+        })
+    },
+    deleteFromCache: function (type, id) {
+        return new Promise((resolve) => {
+            browser.storage.local.get('cache').then(cacheData => {
+                delete cacheData['cache'][type+'_'+id];
+                browser.storage.local.set(cacheData);
+
+                if (id == getId()){
+                    if (type == 'comments') {
+                        this.loadingTable__commentsRow.removeChild(this.loadingTable__commentsRow__cachedIndicator);
+                    } else
+                    if (type == 'transcript') {
+                        this.loadingTable__transcriptRow.removeChild(this.loadingTable__trancriptRow__cachedIndicator);
+                    }
+                }
+
+                resolve(true);
+            })
+        });
+    } 
 }
 
-function doneIfReady () {
+function doneIfReady (cache = true) {
     if (tabId != null) {
         if (isYouTubePost()) {
             setTimeout(function () {
@@ -960,10 +1092,30 @@ function doneIfReady () {
                     doneIfReady();
                 } else {
                     if (!CommentSearchBoxDOM.initialized) CommentSearchBoxDOM.createInstance(document.querySelector("#below"), document.querySelector('#below #comments'));
-                    sendCommandToWindow('REFRESH_INSTANCE', {
-                        transcript: true,
-                        comments: true
-                    });
+                    
+                    console.log('Trying to load from cache...');
+                    if (cache) {
+                        CommentSearchBoxDOM.getFromCache('comments', getId()).then(cacheData => {
+                            CommentSearchBoxDOM.comments = JSON.parse(cacheData);
+                            CommentSearchBoxDOM.updateCountUI('comments', true);
+                            CommentSearchBoxDOM.setLoadingStatus('comments', false, false);
+                        })
+                        .catch((err) => {
+                            if (err == 'NO_CACHE' || err == 'NO_CACHE_ENTRY') {
+                                sendCommandToWindow('REFRESH_INSTANCE', {
+                                    transcript: true,
+                                    comments: true
+                                });
+                            }
+                        });
+                    }
+                    // cache isn't enabled
+                    else {
+                        sendCommandToWindow('REFRESH_INSTANCE', {
+                            transcript: true,
+                            comments: true
+                        });
+                    }
                 }
             }, 300);
         } else if (isYouTubeShort()) {
