@@ -19,6 +19,14 @@ function isYouTubeShort() {
     return window.location.href.startsWith('https://www.youtube.com/shorts/');
 }
 
+function convertToRgba(integer) {
+    const red = (integer >> 16) & 255;
+    const green = (integer >> 8) & 255;
+    const blue = integer & 255;
+    const alpha = ((integer >> 24) & 255) / 255
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 // sends message to window
 function sendCommandToWindow (comhunt_command, comhunt_data = null) {
     window.postMessage({
@@ -606,6 +614,10 @@ var CommentSearchBoxDOM = {
         let commentContainer = document.createElement("div");
         commentContainer.classList.add('comhunt__commentContainer');
 
+        if (commentData.backgroundColorArgb) {
+            commentContainer.style.background = convertToRgba(commentData.backgroundColorArgb)
+        }
+
         if (commentSettings.operation == 'showThreadFromReply' && commentData.commentId == commentSettings.highlightReplyId) {
             commentContainer.classList.add('comhunt__activeComment')
         }
@@ -624,6 +636,14 @@ var CommentSearchBoxDOM = {
         let commentDetailsContainer = document.createElement('div');
         commentDetailsContainer.style.float = 'left';
         commentDetailsContainer.style.width = 'calc(100% - 55px)';
+
+        if (commentData.pinnedText) {
+            let pinnedText = document.createElement('span');
+            pinnedText.innerText = commentData.pinnedText;
+            pinnedText.style.color = '#606060';
+            
+            commentDetailsContainer.append(pinnedText);
+        }
 
         // Top bar, with author name and date
         let topTitle = document.createElement('div')
@@ -649,6 +669,22 @@ var CommentSearchBoxDOM = {
         // Comment text itself
         let commentTextContainer = document.createElement('div');
         commentTextContainer.classList.add('comhunt__commentTextContainer');
+
+        if (commentData.paidCommentData) {
+            let chip = document.createElement('span');
+            chip.innerText = commentData.paidCommentData.chipText;
+
+            chip.style.background = convertToRgba(commentData.paidCommentData.chipColor.bg);
+            chip.style.color = convertToRgba(commentData.paidCommentData.chipColor.fg);
+            chip.style.padding = '0 8px';
+            chip.style.borderRadius = '40px';
+            chip.style.lineHeight = '17px';
+            chip.style.display = 'inline-block';
+            chip.style.fontSize = '12px';
+
+            commentTextContainer.append(chip);
+        }
+
         renderCommentFromRuns(commentData.commentRuns, commentTextContainer, this.searchBox.value);
 
         commentDetailsContainer.append(commentTextContainer)
