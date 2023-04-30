@@ -276,6 +276,25 @@ function load (videoId, continuationToken, CLIENT_APIKEY, isReplySet = false, pa
                         let isLiked = comment.isLiked;
                         let likeActionEndpoint;
                         let toggleActionButton;
+                        let backgroundColorArgb;
+                        let paidCommentData;
+                        let pinnedText;
+                        
+                        if (comment.backgroundExtendedDetails && comment.backgroundExtendedDetails.backgroundColorArgb) {
+                            backgroundColorArgb = comment.backgroundExtendedDetails.backgroundColorArgb;
+                        }
+
+                        if (comment.paidCommentChipRenderer){
+                            console.log(comment);
+                            paidCommentData = {
+                                chipColor: {
+                                    fg: comment.paidCommentChipRenderer.pdgCommentChipRenderer.chipColorPalette.foregroundTitleColor,
+                                    bg: comment.paidCommentChipRenderer.pdgCommentChipRenderer.chipColorPalette.backgroundColor
+                                },
+                                chipText: comment.paidCommentChipRenderer.pdgCommentChipRenderer.chipText.simpleText
+                            }
+                        }
+
                         // only if user is logged
                         if (comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint) {
                             likeActionEndpoint = comment.actionButtons.commentActionButtonsRenderer.likeButton.toggleButtonRenderer.defaultServiceEndpoint.performCommentActionEndpoint.action;
@@ -287,6 +306,15 @@ function load (videoId, continuationToken, CLIENT_APIKEY, isReplySet = false, pa
                                 videoAuthorProfilePicture: videoOwnerThumbnail
                             })
                         }
+
+                        if (comment.pinnedCommentBadge) {
+                            let pinnedBadgeRenderer = comment.pinnedCommentBadge.pinnedCommentBadgeRenderer;
+                            pinnedText = "";
+                            for(var i=0;i<pinnedBadgeRenderer.label.runs.length;i++) {
+                                pinnedText = pinnedText + pinnedBadgeRenderer.label.runs[i].text;
+                            }
+                        }
+
                         sendCommandToCS('append_comment',{
                             commentId,
                             isChannelOwner,
@@ -301,7 +329,10 @@ function load (videoId, continuationToken, CLIENT_APIKEY, isReplySet = false, pa
                             voteCount,
                             isLiked,
                             likeActionEndpoint,
-                            toggleActionButton
+                            toggleActionButton,
+                            backgroundColorArgb,
+                            paidCommentData,
+                            pinnedText
                         });
                     }
                     // generally contains token for loading next comments (next "page"), if it doesn't then it's the end of loading comments??
