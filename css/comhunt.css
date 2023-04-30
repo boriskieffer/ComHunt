@@ -42,6 +42,10 @@ input:focus {
 	vertical-align: middle;;
 }
 
+.comhunt__commentParagraph::after {
+	content: "\00a0"; /* used for empty lines */
+}
+
 .comhunt__commentTextContainer p {
 	font-size: 13px;
 }
@@ -191,4 +195,11 @@ input:focus {
 	position: absolute;
 	top: 8px;
 	left: 8px;
+}
+
+.comhunt__load_cachedIndicator {
+	color: #008400;
+	padding: 4px 0px;
+	font-weight: bold;
+	font-weight: 9px;
 }
