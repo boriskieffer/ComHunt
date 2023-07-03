@@ -3,7 +3,6 @@ let commentElements = {};
 let settings = {};
 browser.storage.local.get().then(_settings => settings = _settings);
 let tabId = null;
-let ytWindowScriptIsLoaded = false;
 let instanceUrl = null;
 let userTheme = null;
 

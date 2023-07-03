@@ -1,4 +1,5 @@
 # ComHunt
+![ComHunt user interface screenshot](/screenshot/Capture.PNG?raw=true "ComHunt UI screenshot")
 Search for YouTube comments and replies under the current video and post. 
 
 Now published! Get it here :
